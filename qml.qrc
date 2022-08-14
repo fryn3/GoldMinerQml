@@ -1,0 +1,29 @@
+<RCC>
+    <qresource prefix="/">
+        <file>frontend/icons/dir.svg</file>
+        <file>frontend/icons/file.svg</file>
+        <file>frontend/common/Text1.qml</file>
+        <file>frontend/common/qmldir</file>
+        <file>frontend/common/Theme.qml</file>
+        <file>frontend/common/ListProgressBar.qml</file>
+        <file>frontend/common/ListDelegate.qml</file>
+        <file>frontend/main.qml</file>
+        <file>frontend/FtpDevices.qml</file>
+        <file>frontend/common/TextH1.qml</file>
+        <file>frontend/common/TextBtn.qml</file>
+        <file>frontend/common/GreenListView.qml</file>
+        <file>frontend/TabArea.qml</file>
+        <file>frontend/TabFiles.qml</file>
+        <file>frontend/common/LineEdit.qml</file>
+        <file>frontend/common/CheckBox.qml</file>
+        <file>frontend/common/icons/check.svg</file>
+        <file>frontend/TabRtsp.qml</file>
+        <file>frontend/TabConfig.qml</file>
+        <file>frontend/common/Button.qml</file>
+        <file>frontend/common/RadioButton.qml</file>
+        <file>frontend/common/RadioGroup.qml</file>
+        <file>frontend/common/icons/spinButtonUpIcon.svg</file>
+        <file>frontend/common/SpinBox.qml</file>
+        <file>frontend/common/Text1Input.qml</file>
+    </qresource>
+</RCC>
