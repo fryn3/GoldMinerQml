@@ -1,0 +1,3 @@
+[submodule "QFtp"]
+	path = QFtp
+	url = https://github.com/fryn3/QFtp.git
