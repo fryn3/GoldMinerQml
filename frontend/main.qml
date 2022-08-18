@@ -35,4 +35,12 @@ Window {
             bottomMargin: 40
         }
     }
+    Common.Text1 {
+        anchors {
+            left: parent.left
+            bottom: parent.bottom
+            margins: 8
+        }
+        text: "Status message"
+    }
 }

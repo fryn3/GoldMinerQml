@@ -4,103 +4,100 @@ import QtQuick.Layouts 1.15
 
 import "common" as Common
 
-Item {
+ColumnLayout {
     id: root
 
     property alias selectDevText: selectDevice.text
 
-    implicitWidth: Math.max(selectDevice.implicitWidth
-                            , connectFtp.implicitWidth
-                            , ftpFilesLv.implicitWidth
-                            , columnControls.implicitWidth)
-    implicitHeight: mainColumn.implicitHeight
+    spacing: 0
+
+    Common.TextH1 {
+        id: selectDevice
+
+        text: "Выбранное устройство"
+    }
+
+    Item {
+        Layout.minimumHeight: 16
+        Layout.fillWidth: true
+    }
+
+    Common.Button {
+        id: connectFtp
+        Layout.fillWidth: true
+
+        text: "Посмотреть файлы"
+    }
+
+    Item {
+        Layout.minimumHeight: 16
+        Layout.fillWidth: true
+    }
+
+    Common.GreenListView {
+        id: ftpFilesLv
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+
+        model: Qt.fontFamilies()
+        delegate: Common.ListDelegate {
+            height: 40
+            width: ListView.view.width
+            textInput.text: modelData
+            progressBar.value: model.index / Qt.fontFamilies().length
+        }
+    }
+
+    Item {
+        Layout.minimumHeight: 16
+        Layout.fillWidth: true
+    }
 
     Column {
-        id: mainColumn
-        anchors {
-            left: parent.left
-            right: parent.right
-            top: parent.top
-        }
+        id: columnControls
+        Layout.fillWidth: true
+
+        spacing: 16
 
         Common.TextH1 {
-            id: selectDevice
-
-            text: "Выбранное устройство"
+            text: "Выбрать папку загрузки"
         }
-
-        Item { height: 16; width: 1; }
-
-        Common.Button {
-            id: connectFtp
+        RowLayout {
             width: parent.width
-
-            text: "Посмотреть файлы"
-        }
-
-        Item { height: 16; width: 1; }
-
-        Common.GreenListView {
-            id: ftpFilesLv
-            width: parent.width
-
-            model: Qt.fontFamilies()
-            delegate: Common.ListDelegate {
-                height: 40
-                width: ListView.view.width
-                textInput.text: modelData
-                progressBar.value: model.index / Qt.fontFamilies().length
-            }
-        }
-
-        Item { height: 16; width: 1; }
-
-        Column {
-            id: columnControls
-            width: parent.width
-
             spacing: 16
 
-            Common.TextH1 {
-                text: "Выбрать папку загрузки"
+            Common.LineEdit {
+                id: path
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                text: "Some text"
+            }
+
+            Common.Button {
+                id: selectDirBtn
+                Layout.alignment: Qt.AlignRight
+                text: "Выбрать"
+            }
+        } // RowLayout
+
+        Column {
+            spacing: 8
+            width: parent.width
+            Common.CheckBox {
+                text: "Удалить после загрузки"
             }
             RowLayout {
                 width: parent.width
                 spacing: 16
-
-                Common.LineEdit {
-                    id: path
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    text: "Some text"
-                }
-
                 Common.Button {
-                    id: selectDirBtn
-                    Layout.alignment: Qt.AlignRight
-                    text: "Выбрать"
+                    Layout.fillWidth: true
+                    text: "Загрузить файлы"
+                }
+                Common.Button {
+                    Layout.fillWidth: true
+                    text: "Очистить память устройства"
                 }
             } // RowLayout
-
-            Column {
-                spacing: 8
-                width: parent.width
-                Common.CheckBox {
-                    text: "Удалить после загрузки"
-                }
-                RowLayout {
-                    width: parent.width
-                    spacing: 16
-                    Common.Button {
-                        Layout.fillWidth: true
-                        text: "Загрузить файлы"
-                    }
-                    Common.Button {
-                        Layout.fillWidth: true
-                        text: "Очистить память устройства"
-                    }
-                } // RowLayout
-            } // Column
         } // Column
-    }
+    } // Column
 }

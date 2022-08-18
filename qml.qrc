@@ -18,7 +18,7 @@
         <file>frontend/common/CheckBox.qml</file>
         <file>frontend/common/icons/check.svg</file>
         <file>frontend/TabRtsp.qml</file>
-        <file>frontend/TabConfig.qml</file>
+        <file>frontend/TabSettings.qml</file>
         <file>frontend/common/Button.qml</file>
         <file>frontend/common/RadioButton.qml</file>
         <file>frontend/common/RadioGroup.qml</file>

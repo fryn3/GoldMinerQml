@@ -3,25 +3,18 @@ import QtQuick.Layouts 1.15
 
 import "common" as Common
 
-
-Item {
-    implicitWidth: col.implicitWidth
-    implicitHeight: col.implicitHeight
-    ColumnLayout {
-        id: col
-        anchors.fill: parent
-        spacing: 16
-        Common.Button {
-            Layout.fillWidth: true
-            text: "Показать картинку с камеры"
-        }
-        Rectangle {
-            id: vlcVideoPlayer
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            color: "black"
-            implicitWidth: 200
-            implicitHeight: implicitWidth
-        }
+ColumnLayout {
+    id: col
+    anchors.fill: parent
+    spacing: 16
+    Common.Button {
+        Layout.fillWidth: true
+        text: "Показать картинку с камеры"
+    }
+    Rectangle {
+        id: vlcVideoPlayer
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        color: "black"
     }
 }

@@ -8,7 +8,7 @@ Item {
     enum TabIndex {
         TabFiles,
         TabRtsp,
-        TabConfig
+        TabSettings
     }
 
     component GreenTabButton: Rectangle {
@@ -60,8 +60,8 @@ Item {
         case 1: // TabRtsp:
             currentTabItem = tabRtsp;
             break;
-        case 2: // TabConfig:
-            currentTabItem = tabConfig;
+        case 2: // TabSettings:
+            currentTabItem = tabSettings;
             break;
         }
     }
@@ -78,7 +78,7 @@ Item {
                     right: parent.right
                     verticalCenter: parent.verticalCenter
                 }
-                visible: root.currentIndex === TabArea.TabIndex.TabConfig
+                visible: root.currentIndex === TabArea.TabIndex.TabSettings
                 color: Common.Theme.borderNormal
                 width: 1
                 height: parent.height - 16
@@ -100,7 +100,7 @@ Item {
         }
         GreenTabButton {
             index: 2
-            text: "Конфигурации"
+            text: "Настройки"
         }
     }
 
@@ -121,8 +121,7 @@ Item {
                 margins: 24
             }
 
-            contentWidth: root.currentTabItem.implicitWidth
-            contentHeight: root.currentTabItem.implicitHeight
+            contentHeight: Math.max(root.currentTabItem.implicitHeight, height)
 
             flickableDirection: Flickable.VerticalFlick
             clip: true
@@ -131,17 +130,17 @@ Item {
             TabFiles {
                 id: tabFiles
                 visible: root.currentTabItem == tabFiles
-                width: tabs.width
+                anchors.fill: parent
             }
             TabRtsp {
                 id: tabRtsp
                 visible: root.currentTabItem == tabRtsp
-                width: tabs.width
+                anchors.fill: parent
             }
-            TabConfig {
-                id: tabConfig
-                visible: root.currentTabItem == tabConfig
-                width: tabs.width
+            TabSettings {
+                id: tabSettings
+                visible: root.currentTabItem == tabSettings
+                anchors.fill: parent
             }
         }
     }

@@ -34,7 +34,11 @@ Item {
             height: 40
             text: "Поиск устройств"
         }
-        // BTN
+        Common.Button {
+            Layout.fillWidth: true
+            height: 40
+            text: "Авто скачивание"
+        }
     }
 
 }
