@@ -6,10 +6,18 @@ QT += quick
 
 include(QFtp/QFtp.pri)
 
+HEADERS += \
+    source/core.h \
+    source/devicemodel.h \
+    source/myfunc.h
+
 SOURCES += \
+        source/core.cpp \
+        source/devicemodel.cpp \
         main.cpp
 
-RESOURCES += qml.qrc
+RESOURCES += qml.qrc \
+    otherResource.qrc
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH =
@@ -21,3 +29,4 @@ QML_DESIGNER_IMPORT_PATH =
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+

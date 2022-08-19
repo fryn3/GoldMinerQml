@@ -1,6 +1,9 @@
 #include <QDebug>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
+
+#include <source/core.h>
 
 
 int main(int argc, char *argv[])
@@ -10,7 +13,10 @@ int main(int argc, char *argv[])
 #endif
     QGuiApplication app(argc, argv);
 
+    Core core;
     QQmlApplicationEngine engine;
+
+    engine.rootContext()->setContextProperty("core", &core);
 
     const QUrl url(QStringLiteral("qrc:/frontend/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

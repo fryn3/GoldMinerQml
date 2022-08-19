@@ -127,4 +127,10 @@ GridLayout {
         Layout.fillWidth: true
         text: "Отправить"
     }
+
+    Item {
+        Layout.columnSpan: 4
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+    }
 }

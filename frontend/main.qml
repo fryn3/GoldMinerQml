@@ -35,12 +35,35 @@ Window {
             bottomMargin: 40
         }
     }
-    Common.Text1 {
+    Common.Text1Input {
+        id: statusBar
         anchors {
             left: parent.left
             bottom: parent.bottom
             margins: 8
         }
+        readOnly: true
+
         text: "Status message"
+
+        Connections {
+            target: core
+            function onShowMessage(msg, timeoutMilisec) {
+                console.info("[showMessage]: \"", msg, "\",", timeoutMilisec, "ms")
+                if (timeoutMilisec > 0) {
+                    statusBarTimer.interval = timeoutMilisec;
+                    statusBarTimer.restart();
+                }
+                statusBar.text = msg;
+            }
+        }
+
+        Timer {
+            id: statusBarTimer
+
+            onTriggered: {
+                statusBar.text = "";
+            }
+        }
     }
 }
