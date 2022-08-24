@@ -1,10 +1,11 @@
 #include "devicemodel.h"
+#include "myfunc.h"
+#include "qcoreapplication.h"
 
 #include <QJsonArray>
 
 static const QString DEVICE_JSON_KEY = "Camera";
 static const int FIELDS_COUNT = 11; // если добавятся поля, это число нужно обновить!
-
 
 bool operator==(const DeviceModel::Device &l, const DeviceModel::Device &r) {
     return l.name == r.name
@@ -22,6 +23,15 @@ bool operator==(const DeviceModel::Device &l, const DeviceModel::Device &r) {
             && l.videoRotation == r.videoRotation
             && l.isSkip == r.isSkip;
 }
+
+
+const QString DeviceModel::ITEM_NAME = "DeviceModel";
+static void regT() {
+    My::qmlRegisterType<DeviceModel>(DeviceModel::ITEM_NAME);
+}
+Q_COREAPP_STARTUP_FUNCTION(regT)
+const bool DeviceModel::IS_QML_REG = true;//My::qmlRegisterType<DeviceModel>(DeviceModel::ITEM_NAME);
+
 
 const std::array<QString, DeviceModel::DM_ROLE_COUNT>
         DeviceModel::DM_ROLE_STR {
@@ -209,6 +219,10 @@ QHash<int, QByteArray> DeviceModel::roleNames() const {
         r.insert(i, DM_ROLE_STR.at(i - DmRoleBegin).toUtf8());
     }
     return r;
+}
+
+QVariant DeviceModel::get(int row, int role) const {
+    return data(index(row), role);
 }
 
 void DeviceModel::addDevice(QString ip, QString mac, QString oName) {

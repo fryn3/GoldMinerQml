@@ -7,6 +7,7 @@ FocusScope {
 
     property alias delegate: lv.delegate
     property alias model: lv.model
+    property alias currentIndex: lv.currentIndex
 
     implicitWidth: rect.implicitWidth
     implicitHeight: rect.implicitHeight

@@ -62,6 +62,22 @@ void Core::findDevices() {
     emit showMessage("Поиск устройств...");
 }
 
+int Core::devModelCurrentIndex() const {
+    return _devModelCurrentIndex;
+}
+
+void Core::setDevModelCurrentIndex(int newDevModelCurrentIndex) {
+    qDebug() << "currentIndex = " << newDevModelCurrentIndex;
+    if (_devModelCurrentIndex == newDevModelCurrentIndex)
+        return;
+    _devModelCurrentIndex = newDevModelCurrentIndex;
+    emit devModelCurrentIndexChanged();
+}
+
+void Core::resetDevModelCurrentIndex() {
+    setDevModelCurrentIndex(-1); // TODO: Adapt to use your actual default value
+}
+
 Core::State Core::state() const {
     return _state;
 }

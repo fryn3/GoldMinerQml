@@ -7,6 +7,8 @@
 class DeviceModel : public QAbstractListModel {
     Q_OBJECT
 public:
+    static const QString ITEM_NAME;     ///< DeviceModel
+    static const bool IS_QML_REG;
 
     enum DevModelRole {
         DmRoleBegin = Qt::UserRole,
@@ -60,6 +62,7 @@ public:
     bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::DisplayRole) override;
     QHash<int, QByteArray> roleNames() const override;
 
+    Q_INVOKABLE QVariant get(int row, int role = Qt::DisplayRole) const;
     void addDevice(QString ip, QString mac = {}, QString oName = {});
     void addDeviceFromIni(QString mac, Device device);
     QList<Device> devices() const;

@@ -6,6 +6,8 @@ import QtQuick.Controls.Styles 1.4
 
 import "common" as Common
 
+import cpp.DeviceModel 43.21
+
 GridLayout {
     id: grid
 
@@ -28,7 +30,9 @@ GridLayout {
         Layout.columnSpan: 3
         Layout.fillWidth: true
         readOnly: true
-        text: "88:4D..."
+
+        text: core.devModelCurrentIndex === -1
+              ? "" : core.deviceModel.get(core.devModelCurrentIndex, DeviceModel.DmMacRole)
     }
 
     Common.Text1 {
@@ -39,7 +43,15 @@ GridLayout {
         Layout.columnSpan: 3
         Layout.fillWidth: true
         readOnly: true
-        text: "192.168.28.43"
+
+        text: core.devModelCurrentIndex === -1
+              ? "" : core.deviceModel.get(core.devModelCurrentIndex, DeviceModel.DmIpRole)
+    }
+
+    Common.Button {
+        Layout.columnSpan: 4
+        Layout.fillWidth: true
+        text: "Прочитать конфигурацию камеры"
     }
 
     Common.Text1 {

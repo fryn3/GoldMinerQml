@@ -15,6 +15,7 @@ Item {
         id: col
         anchors.fill: parent
         spacing: 16
+
         Common.TextH1 {
             Layout.fillWidth: true
             text: "Найденные устройства"
@@ -30,6 +31,10 @@ Item {
                 width: ListView.view.width
                 textInput.text: model.name
                 progressBar.value: Math.random() //model.index
+            }
+
+            onCurrentIndexChanged: {
+                core.devModelCurrentIndex = currentIndex;
             }
         }
         Common.Button {
