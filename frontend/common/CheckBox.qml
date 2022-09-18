@@ -7,9 +7,21 @@ FocusScope {
     property bool checked: false
     property alias text: t.text
 
+    readonly property var defaultClickedBehavior: function() {
+        checked = !checked;
+    }
+    property var clickedBehavior: defaultClickedBehavior
+
+    signal clicked()
+
+    onClicked: {
+        clickedBehavior();
+    }
+
     implicitWidth: imgRect.implicitWidth + t.implicitWidth + t.anchors.leftMargin
     implicitHeight: Math.max(imgRect.implicitHeight, t.implicitHeight)
     activeFocusOnTab: true
+
 
     Rectangle {
         id: imgRect
@@ -64,10 +76,10 @@ FocusScope {
         hoverEnabled: true
         onClicked: {
             root.forceActiveFocus();
-            root.checked = !root.checked;
+            root.clicked();
         }
         Keys.onSpacePressed: {
-            root.checked = !root.checked;
+            root.clicked();
         }
     }
 }

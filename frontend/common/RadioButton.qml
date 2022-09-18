@@ -3,17 +3,28 @@ import QtQuick 2.15
 FocusScope {
     id: root
 
-    readonly property bool checked: radioGroup.selected === root
+    property bool checked: radioGroup ? radioGroup.selected === root : false
     property alias text: t.text
     property RadioGroup radioGroup
 
-    function setChecked() {
-        radioGroup.selected = root;
+    readonly property var defaultClickedBehavior: setChecked
+    property var clickedBehavior: defaultClickedBehavior
+
+    signal clicked()
+
+    onClicked: {
+        clickedBehavior();
     }
 
     implicitWidth: imgRect.implicitWidth + t.implicitWidth + t.anchors.leftMargin
     implicitHeight: Math.max(imgRect.implicitHeight, t.implicitHeight)
     activeFocusOnTab: true
+
+    function setChecked() {
+        if (radioGroup) {
+            radioGroup.selected = root;
+        }
+    }
 
     Rectangle {
         id: imgRect
@@ -60,10 +71,10 @@ FocusScope {
         hoverEnabled: true
         onClicked: {
             root.forceActiveFocus();
-            root.radioGroup.selected = root;
+            root.clicked();
         }
         Keys.onSpacePressed: {
-            root.radioGroup.selected = root;
+            root.clicked();
         }
     }
 }
