@@ -47,12 +47,14 @@ LineEdit {
 
         SpinBtn {
             onClicked: {
+                root.forceActiveFocus();
                 root.text = value + stepSize;
             }
         }
         SpinBtn {
             rotation: 180
             onClicked: {
+                root.forceActiveFocus();
                 root.text = value - stepSize;
             }
         }
