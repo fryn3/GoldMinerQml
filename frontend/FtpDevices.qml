@@ -8,8 +8,15 @@ import cpp.Core 43.21
 
 /// Список фтп устройств, кнопка поиска
 Item {
+
+    property int currentIndex: core.deviceModel.rowCount ? ftpDevListView.currentIndex : -1
+
     implicitWidth: col.implicitWidth
     implicitHeight: col.implicitHeight
+
+    onCurrentIndexChanged: {
+        core.devModelCurrentIndex = currentIndex;
+    }
 
     ColumnLayout {
         id: col
@@ -32,17 +39,13 @@ Item {
                 textInput.text: model.name
                 progressBar.value: Math.random() //model.index
             }
-
-            onCurrentIndexChanged: {
-                core.devModelCurrentIndex = currentIndex;
-            }
         }
         Common.Button {
             id: btnFindDevs
             Layout.fillWidth: true
             height: 40
             text: "Поиск устройств"
-            onClicked: core.findDevices()
+            onClicked: core.findDev()
         }
         Common.Button {
             Layout.fillWidth: true
@@ -58,6 +61,5 @@ Item {
                 enabled: false
             }
         }
-
     ]
 }

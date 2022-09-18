@@ -4,7 +4,24 @@
 
 #include <QDir>
 #include <QProcess>
+#include <QRandomGenerator>
 #include <QTemporaryFile>
+#include <QThread>
+
+// https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
+static QString genRandom(const int len) {
+    static const QString alphanum =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    QString tmp(len, Qt::Uninitialized);
+
+    for (int i = 0; i < len; ++i) {
+        tmp[i] = alphanum.at(QRandomGenerator::global()->bounded(alphanum.length() - 1));
+    }
+
+    return tmp;
+}
 
 const QString Core::ITEM_NAME = "Core";
 static void regT() {
@@ -16,9 +33,46 @@ const bool Core::IS_QML_REG = true;//My::qmlRegisterType<Core>(Core::ITEM_NAME);
 Core::Core(QObject *parent)
     : QObject{parent} {
 
+    connect(this, &Core::devModelCurrentIndexChanged, [] {
+        qDebug() << "Core::devModelCurrentIndexChanged";
+    });
+    connect(this, &Core::stateChanged, [] {
+        qDebug() << "Core::stateChanged";
+    });
+
+    connect(&_devCommander, &DeviceCommander::waitForAnswerChanged, [] {
+        qDebug() << "DeviceCommander::waitForAnswerChanged";
+    });
+    connect(ftpModel(), &FtpModel::errorChanged, [] {
+        qDebug() << "FtpModel::errorChanged";
+    });
+    connect(ftpModel(), &FtpModel::done, [] {
+        qDebug() << "FtpModel::done";
+    });
+    connect(this, &Core::devModelCurrentIndexChanged, this, [this] {
+        if (ftpModel()->state() != QFtp::Unconnected) {
+            ftpModel()->close();
+        }
+    });
+    connect(this, &Core::devModelCurrentIndexChanged, this, &Core::updateCurrentDeviceCam, Qt::DirectConnection);
+    connect(this, &Core::devModelCurrentIndexChanged, this, &Core::stateMachine);
+    connect(this, &Core::stateChanged, this, &Core::stateMachine);
+
+    connect(&_devCommander, &DeviceCommander::waitForAnswerChanged, this, &Core::stateMachine);
+    connect(ftpModel(), &FtpModel::errorChanged, this, &Core::stateMachine);
+    connect(ftpModel(), &FtpModel::done, this, &Core::stateMachine);
+
+    connect(&_devModel, &DeviceModel::dataChanged, this, [this]
+            (const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
+        qDebug() << "DeviceModel::dataChanged" << topLeft.row();
+        if (topLeft.row() <= devModelCurrentIndex()
+                && bottomRight.row() >= devModelCurrentIndex()) {
+            updateCurrentDeviceCam();
+        }
+    }, Qt::DirectConnection);
 }
 
-void Core::findDevices() {
+void Core::findDev() {
     setState(State::FindingDevices);
     _devModel.clear();
     QFile findIpExe(":/resources/soft/FindIP.exe");
@@ -57,9 +111,183 @@ void Core::findDevices() {
             }
             _devModel.addDevice(ip, mac, oName);
         }
+        setState(State::None);
     });
     p->start(newTempFile->fileName(), {"VideoServer"});
     emit showMessage("Поиск устройств...");
+}
+
+void Core::initFtpServer() {
+    QString username = currentDeviceCam().ftpUsername; //devModel()->get(devModelCurrentIndex(), DeviceModel::DmFtpUsernameRole).toString();
+    QString password = currentDeviceCam().ftpPassword; //devModel()->get(devModelCurrentIndex(), DeviceModel::DmFtpPasswordRole).toString();
+
+    if (username.isEmpty() || password.isEmpty()) {
+        qDebug() << "genRandom";
+        username = genRandom(8);
+        password = genRandom(8);
+        devModel()->setData(devModel()->index(devModelCurrentIndex()), username, DeviceModel::DmFtpUsernameRole);
+        devModel()->setData(devModel()->index(devModelCurrentIndex()), password, DeviceModel::DmFtpPasswordRole);
+    }
+    qDebug() << "FTP AUTH: " << username << "\t" << password;
+
+    _devCommander.setData(currentDeviceCam());
+
+    auto error = (_devCommander.sendCommands({ DeviceCommander::Command::SetParameter
+                                            , DeviceCommander::Command::VideoRecordMode
+                                            , DeviceCommander::Command::FtpUsername
+                                            , DeviceCommander::Command::FtpPassword }));
+    Q_ASSERT(error == DeviceCommander::Error::None);
+
+}
+
+void Core::showFtpFiles() {
+    initFtpServer();
+    setState(State::ShowFtpFilesInitFtp);
+}
+
+void Core::readDevConfig() {
+    initFtpServer();
+    setState(State::ReadingConfigInitFtp);
+}
+
+void Core::writeDevConfig() {
+    _devCommander.setData(currentDeviceCam());
+
+    Q_ASSERT(_devCommander.sendCommands() == DeviceCommander::Error::None);
+
+    setState(State::WriteingConfigWaitTcp);
+}
+
+void Core::updateCurrentDeviceCam() {
+    auto d = devModel()->get(devModelCurrentIndex(), DeviceModel::DmStructRole).value<DeviceCam>();
+    if (d != currentDeviceCam()) {
+        setCurrentDeviceCam(d);
+    }
+}
+
+void Core::stateMachine() {
+
+    qDebug() << __FILE__ << __LINE__ << state();
+
+    if (ftpModel()->error()) {
+        qDebug() << ftpModel()->errorString();
+        emit showMessage(ftpModel()->errorString());
+        if (ftpModel()->state() != QFtp::Unconnected) {
+            ftpModel()->close();
+        }
+//        Q_ASSERT(false);
+        return;
+    }
+
+    switch (state()) {
+    case State::None: {
+        break;
+    }
+    case State::FindingDevices: {
+        break;
+    }
+    case State::ShowFtpFilesInitFtp: {
+        if (_devCommander.waitForAnswer()) {
+            break;
+        }
+        QThread::sleep(1);
+        Q_ASSERT(ftpModel()->state() == QFtp::Unconnected);
+        ftpModel()->connectToHost(currentDeviceCam().ip);
+        ftpModel()->login(currentDeviceCam().ftpUsername,
+                        currentDeviceCam().ftpPassword);
+        ftpModel()->setTransferMode(QFtp::Active);
+        ftpModel()->cd("mnt/DCIM");
+        ftpModel()->list();
+        setState(State::ShowFtpFilesGetList);
+    }
+    case State::ShowFtpFilesGetList: {
+        if (!ftpModel()->isDone()) {
+            break;
+        }
+        emit showMessage("Должен показаться список файлов", 5000);
+        break;
+    }
+    case State::ReadingConfigInitFtp: {
+        if (_devCommander.waitForAnswer()) {
+            break;
+        }
+        QThread::sleep(1);
+        if (ftpModel()->state() != QFtp::Unconnected) {
+            ftpModel()->close();
+        }
+        ftpModel()->connectToHost(currentDeviceCam().ip);
+        ftpModel()->login(currentDeviceCam().ftpUsername,
+                        currentDeviceCam().ftpPassword);
+        ftpModel()->setTransferMode(QFtp::Active);
+        ftpModel()->cd("mnt");
+        ftpModel()->list();
+        setState(State::ReadingConfigWaitFtp);
+        break;
+    }
+    case State::ReadingConfigWaitFtp: {
+        if (!ftpModel()->isDone()) {
+            break;
+        }
+        const QString settFile{"settings.ini"};
+        auto indexF = ftpModel()->findName(settFile);
+        if (indexF == -1) {
+            emit showMessage("Не найден файл настроек");
+            return;
+        }
+        if (_settingsFile) {
+            _settingsFile->deleteLater();
+        }
+        _settingsFile = new QTemporaryFile(this);
+        _settingsFile->open();
+        ftpModel()->get(settFile, _settingsFile);
+        setState(State::ReadingConfigDownloading);
+        break;
+    }
+    case State::ReadingConfigDownloading: {
+        if (!ftpModel()->isDone()) {
+            break;
+        }
+        ftpModel()->close();
+        _settingsFile->seek(0);
+        auto settIni = _settingsFile->readAll();
+        qDebug() << " settIni = " << settIni;
+        _devModel.parseSettingsIni(settIni, devModelCurrentIndex());
+        emit showMessage("Прочитал настройки", 5000);
+        setState(State::None);
+        break;
+    }
+    case State::WriteingConfigWaitTcp: {
+        if (_devCommander.waitForAnswer()) {
+            break;
+        }
+        emit showMessage("Записал настройки", 5000);
+        setState(State::None);
+        break;
+    }
+    case State::CountState: {
+        Q_ASSERT(false);
+        break;
+    }
+    }
+}
+
+FtpModel * const Core::ftpModel() {
+    return &_ftpModel;
+}
+
+DeviceCam Core::currentDeviceCam() const {
+    return _currentDeviceCam;
+}
+
+void Core::setCurrentDeviceCam(DeviceCam newCurrentDeviceCam) {
+    if (_currentDeviceCam == newCurrentDeviceCam)
+        return;
+    _currentDeviceCam = newCurrentDeviceCam;
+    emit currentDeviceCamChanged();
+}
+
+void Core::resetCurrentDeviceCam() {
+    setCurrentDeviceCam({});
 }
 
 int Core::devModelCurrentIndex() const {
@@ -75,7 +303,7 @@ void Core::setDevModelCurrentIndex(int newDevModelCurrentIndex) {
 }
 
 void Core::resetDevModelCurrentIndex() {
-    setDevModelCurrentIndex(-1); // TODO: Adapt to use your actual default value
+    setDevModelCurrentIndex(-1);
 }
 
 Core::State Core::state() const {

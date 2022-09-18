@@ -27,6 +27,9 @@ ColumnLayout {
         Layout.fillWidth: true
 
         text: "Посмотреть файлы"
+        onClicked: {
+            core.showFtpFiles();
+        }
     }
 
     Item {
@@ -36,15 +39,23 @@ ColumnLayout {
 
     Common.GreenListView {
         id: ftpFilesLv
+        property string modelPath: model.path
         Layout.fillWidth: true
         Layout.fillHeight: true
 
-        model: Qt.fontFamilies()
+        model: core.ftpModel
         delegate: Common.ListDelegate {
             height: 40
             width: ListView.view.width
-            textInput.text: modelData
-            progressBar.value: model.index / Qt.fontFamilies().length
+            textInput.text: name
+        }
+
+        onCurrentIndexChanged: {
+            console.info("ZAQAZ currentIndex =", currentIndex);
+        }
+
+        onModelPathChanged: {
+            console.info("ZAQAZ modelPath =", modelPath);
         }
     }
 

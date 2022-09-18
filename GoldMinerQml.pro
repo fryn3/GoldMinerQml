@@ -8,11 +8,13 @@ include(QFtp/QFtp.pri)
 
 HEADERS += \
     source/core.h \
+    source/devicecommander.h \
     source/devicemodel.h \
     source/myfunc.h
 
 SOURCES += \
         source/core.cpp \
+        source/devicecommander.cpp \
         source/devicemodel.cpp \
         main.cpp
 

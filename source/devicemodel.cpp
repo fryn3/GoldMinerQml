@@ -7,7 +7,7 @@
 static const QString DEVICE_JSON_KEY = "Camera";
 static const int FIELDS_COUNT = 11; // если добавятся поля, это число нужно обновить!
 
-bool operator==(const DeviceModel::Device &l, const DeviceModel::Device &r) {
+bool operator==(const DeviceCam &l, const DeviceCam &r) {
     return l.name == r.name
             && l.mac == r.mac
             && l.ip == r.ip
@@ -18,12 +18,15 @@ bool operator==(const DeviceModel::Device &l, const DeviceModel::Device &r) {
             && l.videoDuration == r.videoDuration
             && l.chargeDetectDelay == r.chargeDetectDelay
             && l.logWrite == r.logWrite
-//            && l.ftpUsername == r.ftpUsername
-//            && l.ftpPassword == r.ftpPassword
+            && l.ftpUsername == r.ftpUsername
+            && l.ftpPassword == r.ftpPassword
             && l.videoRotation == r.videoRotation
             && l.isSkip == r.isSkip;
 }
 
+bool operator!= (const DeviceCam &l, const DeviceCam &r) {
+    return !(l == r);
+}
 
 const QString DeviceModel::ITEM_NAME = "DeviceModel";
 static void regT() {
@@ -48,13 +51,14 @@ const std::array<QString, DeviceModel::DM_ROLE_COUNT>
     "ftpUsername",
     "ftpPassword",
     "videoRotation",
-    "isSkip"
+    "isSkip",
+    "struct"
 };
 
-DeviceModel::Device DeviceModel::Device::fromJson(QJsonObject jObject, QString mac, bool *ok)
+DeviceCam DeviceCam::fromJson(QJsonObject jObject, QString mac, bool *ok)
 {
     *ok = false;
-    DeviceModel::Device d;
+    DeviceCam d;
     if (!jObject.contains(DEVICE_JSON_KEY)) {
         return d;
     }
@@ -85,7 +89,7 @@ DeviceModel::Device DeviceModel::Device::fromJson(QJsonObject jObject, QString m
     return d;
 }
 
-QJsonObject DeviceModel::Device::toJson(bool withoutMac) const
+QJsonObject DeviceCam::toJson(bool withoutMac) const
 {
     QJsonArray jA;
     jA << name;
@@ -106,7 +110,11 @@ QJsonObject DeviceModel::Device::toJson(bool withoutMac) const
     return jObject;
 }
 
-DeviceModel::DeviceModel(QObject *parent) : QAbstractListModel(parent) { }
+DeviceModel::DeviceModel(QObject *parent) : QAbstractListModel(parent) {
+    connect(this, &QAbstractItemModel::rowsInserted, this, &DeviceModel::rowCountChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &DeviceModel::rowCountChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &DeviceModel::rowCountChanged);
+}
 
 int DeviceModel::rowCount(const QModelIndex &/*parent*/) const {
     return _devices.count();
@@ -142,7 +150,7 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
         return _devices.at(index.row()).mode;
     case DmVideoDurationRole:
         return _devices.at(index.row()).videoDuration;
-    case DmChargeDetectDalayRole:
+    case DmChargeDetectDelayRole:
         return _devices.at(index.row()).chargeDetectDelay;
     case DmLogWriteRole:
         return _devices.at(index.row()).logWrite;
@@ -154,6 +162,8 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
         return _devices.at(index.row()).videoRotation;
     case DmIsSkipRole:
         return _devices.at(index.row()).isSkip;
+    case DmStructRole:
+        return QVariant::fromValue(_devices.at(index.row()));
     }
     return QVariant();
 }
@@ -162,6 +172,13 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
     if (!index.isValid()
             || index.row() >= _devices.count()
             || index.column() != 0) {
+        qDebug() << __FILE__ << __LINE__ << "invalid" << index << value << role;
+        return false;
+    }
+
+    if (role != Qt::DisplayRole
+            && !(role >= DmRoleBegin && role < DmRoleEnd)) {
+        qDebug() << __FILE__ << __LINE__ << "bad role" << index << value << role;
         return false;
     }
 
@@ -169,48 +186,59 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
     case Qt::DisplayRole:
     case DmNameRole:
         _devices[index.row()].name = value.toString();
-        return true;
+        break;
     case DmMacRole:
         _devices[index.row()].mac = value.toString();
-        return true;
+        break;
     case DmIpRole:
         _devices[index.row()].ip = value.toString();
-        return true;
+        break;
     case DmOnameRole:
         _devices[index.row()].oName = value.toString();
-        return true;
+        break;
     case DmUniqueIdRole:
         _devices[index.row()].uniqueId = value.toString();
-        return true;
+        break;
     case DmStatusStringRole:
         _devices[index.row()].statusString = value.toString();
-        return true;
+        break;
     case DmModeRole:
         _devices[index.row()].mode = value.toInt();
-        return true;
+        break;
     case DmVideoDurationRole:
         _devices[index.row()].videoDuration = value.toInt();
-        return true;
-    case DmChargeDetectDalayRole:
+        break;
+    case DmChargeDetectDelayRole:
         _devices[index.row()].chargeDetectDelay = value.toDouble();
-        return true;
+        break;
     case DmLogWriteRole:
         _devices[index.row()].logWrite = value.toBool();
-        return true;
+        break;
     case DmFtpUsernameRole:
         _devices[index.row()].ftpUsername = value.toString();
-        return true;
+        break;
     case DmFtpPasswordRole:
         _devices[index.row()].ftpPassword = value.toString();
-        return true;
+        break;
     case DmVideoRotationRole:
         _devices[index.row()].videoRotation = value.toBool();
-        return true;
+        break;
     case DmIsSkipRole:
         _devices[index.row()].isSkip = value.toBool();
-        return true;
+        break;
+    case DmStructRole:
+        _devices[index.row()] = value.value<DeviceCam>();
+        break;
     }
-    return false;
+    if (role == Qt::DisplayRole
+            || role == DmNameRole) {
+        emit dataChanged(index, index, { Qt::DisplayRole, DmNameRole, DmStructRole });
+    } else if (role == DmStructRole) {
+        emit dataChanged(index, index);
+    } else {
+        emit dataChanged(index, index, { role, DmStructRole });
+    }
+    return true;
 }
 
 QHash<int, QByteArray> DeviceModel::roleNames() const {
@@ -225,9 +253,15 @@ QVariant DeviceModel::get(int row, int role) const {
     return data(index(row), role);
 }
 
+bool DeviceModel::set(int row, const QVariant &value, int role) {
+    bool r = setData(index(row), value, role);
+    qDebug() << __FILE__ << __LINE__ << row << value << role << " ==> " << r;
+    return r;
+}
+
 void DeviceModel::addDevice(QString ip, QString mac, QString oName) {
     beginInsertRows(QModelIndex(), rowCount(), rowCount());
-    Device d;
+    DeviceCam d;
     if (!mac.isEmpty()) {
         if (_savingDevices.contains(mac)) {
             d = _savingDevices.value(mac);
@@ -246,12 +280,55 @@ void DeviceModel::addDevice(QString ip, QString mac, QString oName) {
     endInsertRows();
 }
 
-void DeviceModel::addDeviceFromIni(QString mac, DeviceModel::Device device) {
+void DeviceModel::addDeviceFromIni(QString mac, DeviceCam device) {
     Q_ASSERT(mac == device.mac);
     _savingDevices.insert(mac, device);
 }
 
-QList<DeviceModel::Device> DeviceModel::devices() const {
+void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
+    qDebug() << __LINE__ << settingsIni;
+//    const auto WLAN_SSID = QLatin1String("WLAN_SSID");  // не нужно!
+//    const auto WLAN_PWD = QLatin1String("WLAN_PWD");    // не нужно!
+//    const auto RTSP_USER = QLatin1String("RTSP_USER");  // не нужно!
+//    const auto RTSP_PWD = QLatin1String("RTSP_PWD");    // не нужно!
+    const auto UNIQUE_ID = QLatin1String("UNIQUE_ID");
+    const auto STATUS_STRING = QLatin1String("STATUS_STRING");
+    const auto CHARGE_DETECT_DELAY = QLatin1String("CHARGE_DETECT_DELAY");
+    const auto VIDEO_DURATION = QLatin1String("VIDEO_DURATION");
+    const auto VIDEO_RECORD_MODE = QLatin1String("VIDEO_RECORD_MODE");
+//    const auto BUTTON_PRESS_DURATION = QLatin1String("BUTTON_PRESS_DURATION"); // не нужно!
+//    const auto SETTINGS_UPD = QLatin1String("SETTINGS_UPD"); // не нужно!
+    const auto LOG_WRITE = QLatin1String("LOG_WRITE");
+    const auto VIDEO_ROTATION = QLatin1String("VIDEO_ROTATION");
+
+    const QMap<QLatin1String, int> m {
+        {UNIQUE_ID, DmUniqueIdRole},
+        {STATUS_STRING, DmStatusStringRole},
+        {CHARGE_DETECT_DELAY, DmChargeDetectDelayRole},
+        {VIDEO_DURATION, DmVideoDurationRole},
+        {VIDEO_RECORD_MODE, DmModeRole},
+        {LOG_WRITE, DmLogWriteRole},
+        {VIDEO_ROTATION, DmVideoRotationRole},
+    };
+
+    auto settingsRows = settingsIni.split("\n", Qt::SkipEmptyParts);
+
+    for (const auto& rowStr: settingsRows) {
+        if (rowStr.startsWith("#")) {
+            continue;
+        }
+        auto value = rowStr.section("\"", 1, 1);
+
+        for (auto it = m.constBegin(); it != m.constEnd(); ++it) {
+            if (rowStr.startsWith(it.key())) {
+                setData(index(row), value, it.value());
+                break;
+            }
+        }
+    }
+}
+
+QList<DeviceCam> DeviceModel::devices() const {
     return _devices;
 }
 
