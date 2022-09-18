@@ -20,4 +20,7 @@ bool qmlRegisterType(QString itemName) {
     return true;
 }
 
+// Генерирует рандомное слово длиной len.
+QString genRandom(const int len);
+
 }   // namespace My

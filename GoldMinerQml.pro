@@ -9,14 +9,17 @@ include(QFtp/QFtp.pri)
 HEADERS += \
     source/core.h \
     source/devicecommander.h \
+    source/devicecontroller.h \
     source/devicemodel.h \
     source/myfunc.h
 
 SOURCES += \
         source/core.cpp \
         source/devicecommander.cpp \
+        source/devicecontroller.cpp \
         source/devicemodel.cpp \
-        main.cpp
+        main.cpp \
+        source/myfunc.cpp
 
 RESOURCES += qml.qrc \
     otherResource.qrc

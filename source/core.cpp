@@ -4,24 +4,8 @@
 
 #include <QDir>
 #include <QProcess>
-#include <QRandomGenerator>
 #include <QTemporaryFile>
 #include <QThread>
-
-// https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
-static QString genRandom(const int len) {
-    static const QString alphanum =
-        "0123456789"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz";
-    QString tmp(len, Qt::Uninitialized);
-
-    for (int i = 0; i < len; ++i) {
-        tmp[i] = alphanum.at(QRandomGenerator::global()->bounded(alphanum.length() - 1));
-    }
-
-    return tmp;
-}
 
 const QString Core::ITEM_NAME = "Core";
 static void regT() {
@@ -123,10 +107,10 @@ void Core::initFtpServer() {
 
     if (username.isEmpty() || password.isEmpty()) {
         qDebug() << "genRandom";
-        username = genRandom(8);
-        password = genRandom(8);
-        devModel()->setData(devModel()->index(devModelCurrentIndex()), username, DeviceModel::DmFtpUsernameRole);
-        devModel()->setData(devModel()->index(devModelCurrentIndex()), password, DeviceModel::DmFtpPasswordRole);
+        username = My::genRandom(8);
+        password = My::genRandom(8);
+        devModel()->set(devModelCurrentIndex(), username, DeviceModel::DmFtpUsernameRole);
+        devModel()->set(devModelCurrentIndex(), password, DeviceModel::DmFtpPasswordRole);
     }
     qDebug() << "FTP AUTH: " << username << "\t" << password;
 
@@ -159,7 +143,8 @@ void Core::writeDevConfig() {
 }
 
 void Core::updateCurrentDeviceCam() {
-    auto d = devModel()->get(devModelCurrentIndex(), DeviceModel::DmStructRole).value<DeviceCam>();
+    auto d = devModel()->get(devModelCurrentIndex(),
+                             DeviceModel::DmStructRole).value<DeviceCam>();
     if (d != currentDeviceCam()) {
         setCurrentDeviceCam(d);
     }
