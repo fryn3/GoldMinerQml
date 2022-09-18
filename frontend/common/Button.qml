@@ -28,7 +28,11 @@ FocusScope {
             if (ma.containsPress || spacePressed) {
                 return Theme.buttonDownColor;
             }
-            return ma.containsMouse || activeFocus ? Theme.buttonHoverColor : Theme.buttonNormalColor;
+            return ma.containsMouse ? Theme.buttonHoverColor : Theme.buttonNormalColor;
+        }
+        border {
+            width: activeFocus ? 1 : 0
+            color: Theme.borderFocused
         }
 
         Keys.onSpacePressed: {
