@@ -39,8 +39,10 @@ void DeviceController::workerStarting() {
                                       DeviceModel::DmStructRole).value<DeviceCam>();
         auto deviceName = _devModel->get(_currentDev,
                                          Qt::DisplayRole).toString();
+        QString timeDir = QDateTime::currentDateTime().toString("yy_MM_dd_HH_mm_ss");
 
-        auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder, deviceName, this);
+        auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder
+                                        , {deviceName, timeDir}, this);
 
         connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
         connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
@@ -48,12 +50,11 @@ void DeviceController::workerStarting() {
             _devModel->set(devWorker->indexRow, devWorker->progressTotal(), DeviceModel::DmTotalSizeRole);
         });
         connect(devWorker, &DevWorker::progressDoneChanged, this, [this, devWorker] {
-            qDebug() << "DeviceController done" << devWorker->progressDone();
             _devModel->set(devWorker->indexRow, devWorker->progressDone(), DeviceModel::DmDoneSizeRole);
         });
-
         devWorker->startDownloading();
         _devWorkers.insert(_currentDev, devWorker);
+        ++_currentDev;
     }
 }
 
@@ -78,9 +79,9 @@ void DeviceController::setDownloadFolder(const QString &newDownloadFolder) {
     emit downloadFolderChanged();
 }
 
-DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QString name, QObject *parent)
+DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent)
     : QObject(parent), indexRow(index), ip(ipStr), ftpUsername(ftpLog), ftpPassword(ftpPass),
-      downloadFolder(folderPath), dirName(name) {
+      downloadFolder(folderPath), subDirs(subDirsList) {
 
     connect(this, &DevWorker::stateChanged, &DevWorker::stateMachine);
 
@@ -98,8 +99,8 @@ DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, 
     });
 }
 
-DevWorker::DevWorker(int index, const DeviceCam &dev, QString folderPath, QString name, QObject *parent)
-    : DevWorker(index, dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, name, parent) { }
+DevWorker::DevWorker(int index, const DeviceCam &dev, QString folderPath, QStringList subDirs, QObject *parent)
+    : DevWorker(index, dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, subDirs, parent) { }
 
 DevWorker::State DevWorker::state() const {
     return _state;
@@ -171,13 +172,19 @@ void DevWorker::stateMachine() {
         }
 
         QDir selectDir(downloadFolder);
-
-        if (!selectDir.cd(dirName)) {
-            selectDir.mkdir(dirName);
-            Q_ASSERT(selectDir.cd(dirName));
+        for (const auto& d: subDirs) {
+            auto newDirName = d.trimmed();
+            newDirName.replace(QRegExp("[\\\\\\/\\:\\*\\?\\\"<>\\|]"), "_");
+            if (!selectDir.cd(newDirName)) {
+                selectDir.mkdir(newDirName);
+                Q_ASSERT(selectDir.cd(newDirName));
+            }
         }
 
         // возможно нужна проверка и закрытие предыдущего файла.
+        if (_file.isOpen()) {
+            _file.close();
+        }
         _file.setFileName(selectDir.filePath(urlInfo.name()));
         __progressPrevDoneInFile = 0;
         Q_ASSERT(_file.open(QIODevice::WriteOnly));
@@ -204,22 +211,22 @@ void DevWorker::setState(State newState) {
     emit stateChanged();
 }
 
-int DevWorker::progressTotal() const {
+qint64 DevWorker::progressTotal() const {
     return _progressTotal;
 }
 
-void DevWorker::setProgressTotal(int newProgressTotal) {
+void DevWorker::setProgressTotal(qint64 newProgressTotal) {
     if (_progressTotal == newProgressTotal)
         return;
     _progressTotal = newProgressTotal;
     emit progressTotalChanged();
 }
 
-int DevWorker::progressDone() const {
+qint64 DevWorker::progressDone() const {
     return _progressDone;
 }
 
-void DevWorker::setProgressDone(int newProgressDone) {
+void DevWorker::setProgressDone(qint64 newProgressDone) {
     if (_progressDone == newProgressDone)
         return;
     _progressDone = newProgressDone;

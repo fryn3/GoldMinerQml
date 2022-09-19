@@ -52,7 +52,9 @@ const std::array<QString, DeviceModel::DM_ROLE_COUNT>
     "ftpPassword",
     "videoRotation",
     "isSkip",
-    "struct"
+    "struct",
+    "totalSize",
+    "doneSize"
 };
 
 DeviceCam DeviceCam::fromJson(QJsonObject jObject, QString mac, bool *ok)
@@ -238,10 +240,10 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
         _devices[index.row()] = value.value<DeviceCam>();
         break;
     case DmTotalSizeRole:
-        _devices[index.row()].totalSize = value.toInt();
+        _devices[index.row()].totalSize = value.toLongLong();
         break;
     case DmDoneSizeRole:
-        _devices[index.row()].doneSize = value.toInt();
+        _devices[index.row()].doneSize = value.toLongLong();
         break;
     }
     if (role == Qt::DisplayRole
@@ -271,7 +273,6 @@ QVariant DeviceModel::get(int row, int role) const {
 
 bool DeviceModel::set(int row, const QVariant &value, int role) {
     bool r = setData(index(row), value, role);
-    qDebug() << __FILE__ << __LINE__ << row << value << role << " ==> " << r;
     return r;
 }
 

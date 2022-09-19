@@ -37,7 +37,12 @@ Item {
                 height: 40
                 width: ListView.view.width
                 textInput.text: model.name
-                progressBar.value: Math.random() //model.index
+                progressBar {
+                    to: model.totalSize
+                    value: model.doneSize
+                }
+//                progressBar.value: Math.random() //model.index
+
             }
         }
         Common.Button {

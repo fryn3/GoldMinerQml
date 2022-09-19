@@ -61,8 +61,8 @@ private:
 class DevWorker : public QObject {
     Q_OBJECT
     Q_PROPERTY(State state READ state NOTIFY stateChanged FINAL)
-    Q_PROPERTY(int progressTotal READ progressTotal NOTIFY progressTotalChanged FINAL)
-    Q_PROPERTY(int progressDone READ progressDone NOTIFY progressDoneChanged FINAL)
+    Q_PROPERTY(qint64 progressTotal READ progressTotal NOTIFY progressTotalChanged FINAL)
+    Q_PROPERTY(qint64 progressDone READ progressDone NOTIFY progressDoneChanged FINAL)
 public:
     enum class State {
         None,
@@ -77,8 +77,8 @@ public:
 
         CountState
     };
-    DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QString name, QObject *parent = nullptr);
-    DevWorker(int index, const DeviceCam& dev, QString folderPath, QString name, QObject *parent = nullptr);
+    DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent = nullptr);
+    DevWorker(int index, const DeviceCam& dev, QString folderPath, QStringList subDirs, QObject *parent = nullptr);
     DevWorker(const DevWorker&) = delete;
     DevWorker& operator=(const DevWorker&) = delete;
 
@@ -88,12 +88,12 @@ public:
     const QString ftpPassword;
     const QString mode = "1"; /// \todo пусть тут будет всегда 1. Уточнить у Жени.
     const QString downloadFolder;
-    const QString dirName;  // deviceName || Unique ID || MAC
+    const QStringList subDirs;  // deviceName -> time
 
     State state() const;
 
-    int progressTotal() const;
-    int progressDone() const;
+    qint64 progressTotal() const;
+    qint64 progressDone() const;
 
 public slots:
     void startDownloading();
@@ -111,8 +111,8 @@ private slots:
     void stateMachine();
 private:
     void setState(State newState);
-    void setProgressTotal(int newProgressTotal);
-    void setProgressDone(int newProgressDone);
+    void setProgressTotal(qint64 newProgressTotal);
+    void setProgressDone(qint64 newProgressDone);
 
     State _state = State::None;
     DeviceCommander _commander;
@@ -120,11 +120,11 @@ private:
     QFile _file;
 
     // Размер всех элементов в ftp.
-    int _progressTotal = 1;
+    qint64 _progressTotal = 1;
     // Сколько уже скачано.
-    int _progressDone = 0;
+    qint64 _progressDone = 0;
     // Для текущего файла предыдущее значение прогресса.
-    int __progressPrevDoneInFile = 0;
+    qint64 __progressPrevDoneInFile = 0;
 
     QList<QUrlInfo> _filesToDownload;
 };

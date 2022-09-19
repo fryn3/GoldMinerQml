@@ -79,8 +79,8 @@ struct DeviceCam {
     Q_PROPERTY(QString ftpPassword MEMBER ftpPassword)
     Q_PROPERTY(bool videoRotation MEMBER videoRotation)
     Q_PROPERTY(bool isSkip MEMBER isSkip)
-    Q_PROPERTY(int totalSize MEMBER totalSize)
-    Q_PROPERTY(int doneSize MEMBER doneSize)
+    Q_PROPERTY(qint64 totalSize MEMBER totalSize)
+    Q_PROPERTY(qint64 doneSize MEMBER doneSize)
 
 public:
     friend bool operator==(const DeviceCam &l, const DeviceCam &r);
@@ -101,8 +101,8 @@ public:
     QString ftpPassword;
     bool videoRotation = false;
     bool isSkip = false;
-    int totalSize = 1;
-    int doneSize = 0;
+    qint64 totalSize = 1;
+    qint64 doneSize = 0;
 };
 
 Q_DECLARE_METATYPE(DeviceCam)

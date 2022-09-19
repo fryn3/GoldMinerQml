@@ -48,7 +48,6 @@ Core::Core(QObject *parent)
 
     connect(&_devModel, &DeviceModel::dataChanged, this, [this]
             (const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
-        qDebug() << "DeviceModel::dataChanged" << topLeft.row();
         if (topLeft.row() <= devModelCurrentIndex()
                 && bottomRight.row() >= devModelCurrentIndex()) {
             updateCurrentDeviceCam();
@@ -56,6 +55,10 @@ Core::Core(QObject *parent)
     }, Qt::DirectConnection);
 
     _devController.setDeviceModel(devModel());
+
+    connect(&_devController, &DeviceController::finished, [] {
+        qDebug() << "DeviceController::finished";
+    });
 
 }
 
