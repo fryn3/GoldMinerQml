@@ -354,7 +354,7 @@ void DeviceCommander::setFtpPassword(const QString &newFtpPassword) {
 
 void DeviceCommander::socketReadyRead() {
     Q_ASSERT(_socket);
-    qDebug() << "ReadyRead" << _socket->readAll();
+    qDebug() << "DeviceCommander::socketReadyRead: " << _socket->readAll();
     setWaitForAnswer(false);
 }
 

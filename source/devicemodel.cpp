@@ -130,7 +130,11 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
     switch (role) {
     case Qt::DisplayRole:
         if (_devices.at(index.row()).name.isEmpty()) {
-            return _devices.at(index.row()).mac;
+            if (_devices.at(index.row()).uniqueId.isEmpty()) {
+                return _devices.at(index.row()).mac;
+            } else {
+                return _devices.at(index.row()).uniqueId;
+            }
         } else {
             return _devices.at(index.row()).name;
         }
@@ -164,6 +168,10 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
         return _devices.at(index.row()).isSkip;
     case DmStructRole:
         return QVariant::fromValue(_devices.at(index.row()));
+    case DmTotalSizeRole:
+        return _devices.at(index.row()).totalSize;
+    case DmDoneSizeRole:
+        return _devices.at(index.row()).doneSize;
     }
     return QVariant();
 }
@@ -229,10 +237,18 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
     case DmStructRole:
         _devices[index.row()] = value.value<DeviceCam>();
         break;
+    case DmTotalSizeRole:
+        _devices[index.row()].totalSize = value.toInt();
+        break;
+    case DmDoneSizeRole:
+        _devices[index.row()].doneSize = value.toInt();
+        break;
     }
     if (role == Qt::DisplayRole
-            || role == DmNameRole) {
-        emit dataChanged(index, index, { Qt::DisplayRole, DmNameRole, DmStructRole });
+            || role == DmNameRole
+            || role == DmMacRole
+            || role == DmUniqueIdRole) {
+        emit dataChanged(index, index, { Qt::DisplayRole, role, DmStructRole });
     } else if (role == DmStructRole) {
         emit dataChanged(index, index);
     } else {

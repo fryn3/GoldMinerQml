@@ -65,7 +65,6 @@ public:
     Error sendCommands(const QSet<Command> &commands = {});
 
     bool waitForAnswer() const;
-    void setWaitForAnswer(bool newWaitForAnswer);
 
     QStringList argsFunc(Command command) const;
     QStringList argsSetParameter() const;
@@ -143,6 +142,8 @@ private slots:
     void socketStateChanged(QAbstractSocket::SocketState socketState);
     void socketSendMsg();
 private:
+    void setWaitForAnswer(bool newWaitForAnswer);
+
     QTcpSocket *_socket = nullptr;
     bool _waitForAnswer = false;
     QByteArray _sendMsg;
