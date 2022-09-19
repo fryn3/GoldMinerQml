@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QObject>
 #include "devicecommander.h"
+#include "devicecontroller.h"
 #include "devicemodel.h"
 #include "ftpmodel.h"
 
@@ -10,6 +11,7 @@ class Core : public QObject {
     Q_OBJECT
     Q_PROPERTY(DeviceModel * deviceModel READ devModel CONSTANT FINAL)
     Q_PROPERTY(FtpModel * ftpModel READ ftpModel CONSTANT FINAL)
+    Q_PROPERTY(DeviceController * deviceController READ devController CONSTANT FINAL)
     Q_PROPERTY(int devModelCurrentIndex READ devModelCurrentIndex WRITE setDevModelCurrentIndex RESET resetDevModelCurrentIndex NOTIFY devModelCurrentIndexChanged FINAL)
     Q_PROPERTY(State state READ state NOTIFY stateChanged FINAL)
     Q_PROPERTY(DeviceCam currentDeviceCam READ currentDeviceCam WRITE setCurrentDeviceCam RESET resetCurrentDeviceCam NOTIFY currentDeviceCamChanged FINAL)
@@ -47,7 +49,7 @@ public:
 
     explicit Core(QObject *parent = nullptr);
 
-    DeviceModel * const devModel();
+    DeviceModel * devModel();
 
     State state() const;
     void setState(State newState);
@@ -60,7 +62,9 @@ public:
     void setCurrentDeviceCam(DeviceCam newCurrentDeviceCam);
     void resetCurrentDeviceCam();
 
-    FtpModel * const ftpModel();
+    FtpModel * ftpModel();
+
+    DeviceController *devController();
 
 public slots:
     void findDev();
@@ -96,4 +100,9 @@ private:
     QByteArray _settArray;
     State _state;
     QTemporaryFile *_settingsFile = nullptr;
+
+    DeviceController _devController;
+    // Нужно подключить констроллер к кнопке,
+    // инициализировать переменные,
+    // законнектить сигнал finished().
 };

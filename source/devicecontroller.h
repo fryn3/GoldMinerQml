@@ -15,6 +15,14 @@ class DeviceController : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString downloadFolder READ downloadFolder WRITE setDownloadFolder NOTIFY downloadFolderChanged)
 public:
+    enum class State {
+        None,
+        Downloding,
+        Finished,
+
+        Count
+    };
+    Q_ENUM(State)
     explicit DeviceController(QObject *parent = nullptr);
     DeviceController(const DeviceController&) = delete;
     DeviceController& operator=(const DeviceController&) = delete;
@@ -26,17 +34,19 @@ public:
 
 public slots:
     void startDownloading();
-    void workerStarting();
 
 signals:
-
+    void started();
+    void finished();
     void downloadFolderChanged();
 
+private slots:
+    void workerStarting();
 private:
     void configFtpServer(int indexDev);
     DeviceModel *_devModel;
     QString _downloadFolder;
-    QHash<int, DevWorker*> _devsCommander;
+    QHash<int, DevWorker*> _devWorkers;
     int _countParallel = 2;
     int _currentDev = 0;
 };
@@ -67,11 +77,12 @@ public:
 
         CountState
     };
-    DevWorker(QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QString name, QObject *parent = nullptr);
-    DevWorker(const DeviceCam& dev, QString folderPath, QString name, QObject *parent = nullptr);
+    DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QString name, QObject *parent = nullptr);
+    DevWorker(int index, const DeviceCam& dev, QString folderPath, QString name, QObject *parent = nullptr);
     DevWorker(const DevWorker&) = delete;
     DevWorker& operator=(const DevWorker&) = delete;
 
+    const int indexRow;
     const QString ip;
     const QString ftpUsername;
     const QString ftpPassword;

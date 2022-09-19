@@ -51,6 +51,7 @@ Item {
             Layout.fillWidth: true
             height: 40
             text: "Авто скачивание"
+            onClicked: core.deviceController.startDownloading()
         }
     }
     states: [

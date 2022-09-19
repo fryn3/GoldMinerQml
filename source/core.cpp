@@ -54,6 +54,9 @@ Core::Core(QObject *parent)
             updateCurrentDeviceCam();
         }
     }, Qt::DirectConnection);
+
+    _devController.setDeviceModel(devModel());
+
 }
 
 void Core::findDev() {
@@ -124,6 +127,10 @@ void Core::initFtpServer() {
 
 }
 
+DeviceController *Core::devController() {
+    return &_devController;
+}
+
 void Core::showFtpFiles() {
     initFtpServer();
     setState(State::ShowFtpFilesInitFtp);
@@ -184,6 +191,7 @@ void Core::stateMachine() {
         ftpModel()->cd("mnt/DCIM");
         ftpModel()->list();
         setState(State::ShowFtpFilesGetList);
+        break;
     }
     case State::ShowFtpFilesGetList: {
         if (!ftpModel()->isDone()) {
@@ -256,7 +264,7 @@ void Core::stateMachine() {
     }
 }
 
-FtpModel * const Core::ftpModel() {
+FtpModel *Core::ftpModel() {
     return &_ftpModel;
 }
 
@@ -302,6 +310,6 @@ void Core::setState(State newState) {
     emit stateChanged();
 }
 
-DeviceModel * const Core::devModel() {
+DeviceModel *Core::devModel() {
     return &_devModel;
 }

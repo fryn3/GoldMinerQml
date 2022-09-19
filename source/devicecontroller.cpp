@@ -15,14 +15,22 @@ void DeviceController::setDeviceModel(DeviceModel *devModel) {
 void DeviceController::startDownloading() {
     Q_ASSERT(_devModel);
     Q_ASSERT(!downloadFolder().isEmpty());
-    Q_ASSERT(_devsCommander.isEmpty());
+    Q_ASSERT(_devWorkers.isEmpty());
+    emit started();
     _currentDev = 0;
+    workerStarting();
 }
 
 void DeviceController::workerStarting() {
-    while (_devsCommander.size() < _countParallel) {
+    if (sender()) {
+        auto s = qobject_cast<DevWorker*>(sender());
+        _devWorkers.remove(s->indexRow);
+        s->deleteLater();
+    }
+    while (_devWorkers.size() < _countParallel) {
         if (_currentDev >= _devModel->rowCount()) {
             qDebug() << "В моделе девайсы закончились.";
+            emit  finished();
             return;
         }
         configFtpServer(_currentDev);
@@ -32,17 +40,25 @@ void DeviceController::workerStarting() {
         auto deviceName = _devModel->get(_currentDev,
                                          Qt::DisplayRole).toString();
 
-        auto *devWorker = new DevWorker(dStruct, _downloadFolder, deviceName, this);
+        auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder, deviceName, this);
 
-
+        connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
+        connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
+            qDebug() << "DeviceController total" << devWorker->progressTotal();
+            _devModel->set(devWorker->indexRow, devWorker->progressTotal(), DeviceModel::DmTotalSizeRole);
+        });
+        connect(devWorker, &DevWorker::progressDoneChanged, this, [this, devWorker] {
+            qDebug() << "DeviceController done" << devWorker->progressDone();
+            _devModel->set(devWorker->indexRow, devWorker->progressDone(), DeviceModel::DmDoneSizeRole);
+        });
 
         devWorker->startDownloading();
-        _devsCommander.insert(_currentDev, devWorker);
+        _devWorkers.insert(_currentDev, devWorker);
     }
 }
 
 void DeviceController::configFtpServer(int indexDev) {
-    Q_ASSERT(!_devsCommander.contains(indexDev));
+    Q_ASSERT(!_devWorkers.contains(indexDev));
     QString username = My::genRandom(8);
     QString password = My::genRandom(8);
 
@@ -62,8 +78,8 @@ void DeviceController::setDownloadFolder(const QString &newDownloadFolder) {
     emit downloadFolderChanged();
 }
 
-DevWorker::DevWorker(QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QString name, QObject *parent)
-    : QObject(parent), ip(ipStr), ftpUsername(ftpLog), ftpPassword(ftpPass),
+DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QString name, QObject *parent)
+    : QObject(parent), indexRow(index), ip(ipStr), ftpUsername(ftpLog), ftpPassword(ftpPass),
       downloadFolder(folderPath), dirName(name) {
 
     connect(this, &DevWorker::stateChanged, &DevWorker::stateMachine);
@@ -82,8 +98,8 @@ DevWorker::DevWorker(QString ipStr, QString ftpLog, QString ftpPass, QString fol
     });
 }
 
-DevWorker::DevWorker(const DeviceCam &dev, QString folderPath, QString name, QObject *parent)
-    : DevWorker(dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, name, parent) { }
+DevWorker::DevWorker(int index, const DeviceCam &dev, QString folderPath, QString name, QObject *parent)
+    : DevWorker(index, dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, name, parent) { }
 
 DevWorker::State DevWorker::state() const {
     return _state;

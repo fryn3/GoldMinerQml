@@ -81,7 +81,10 @@ ColumnLayout {
                 id: path
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                text: "Some text"
+                text: core.deviceController.downloadFolder
+                textInput.onEditingFinished: {
+                    core.deviceController.downloadFolder = text;
+                }
             }
 
             Common.Button {
