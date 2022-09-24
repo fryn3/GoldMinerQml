@@ -303,7 +303,7 @@ void DeviceModel::addDeviceFromIni(QString mac, DeviceCam device) {
 }
 
 void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
-    qDebug() << __LINE__ << settingsIni;
+    qDebug() << __FILE__ << ":" << __LINE__ << settingsIni;
 //    const auto WLAN_SSID = QLatin1String("WLAN_SSID");  // не нужно!
 //    const auto WLAN_PWD = QLatin1String("WLAN_PWD");    // не нужно!
 //    const auto RTSP_USER = QLatin1String("RTSP_USER");  // не нужно!

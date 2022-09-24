@@ -39,6 +39,7 @@ DeviceCommander::DeviceCommander(QObject *parent)
             disconnect(_socket);
             _socket->deleteLater();
             _socket = nullptr;
+            setError(Error::None);
         }
         setWaitForAnswer(false);
     };
@@ -73,6 +74,7 @@ void DeviceCommander::setData(DeviceCam d) {
 }
 
 DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &commands) {
+    setError(Error::None);
     if (waitForAnswer()) {
         return Error::WaitForAnswer;
     }
@@ -92,13 +94,13 @@ DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &comman
     }
     // Вместе с каждой командой отправляем время!
     map.insert(Command::Date, COMMAND_PATTERN[Command::Date]);
-
+    _sendMsg.clear();
     for (auto pairIt = map.constBegin(); pairIt != map.constEnd(); ++pairIt) {
         auto args = argsFunc(pairIt.key());
         auto commandStr = pairIt.value();
         for (const auto& a: args) {
             if (a.isEmpty() && pairIt.key() != Command::ContentType) {
-                qDebug() << commandStr << args;
+                qDebug() << __FILE__ << ":" << __LINE__ << commandStr << args;
                 return Error::MissArgument;
             }
             commandStr = commandStr.arg(a);
@@ -108,22 +110,27 @@ DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &comman
     _sendMsg.append("\r\n");
     qDebug() << "SEND_COMMAND ### " << _sendMsg;
 
-    if (!_socket) {
-        _socket = new QTcpSocket(this);
-        connect(_socket, &QTcpSocket::connected, [] {
-            qDebug() << "Connected";
-        });
-        connect(_socket, &QTcpSocket::disconnected, [] {
-            qDebug() << "Disconnected";
-        });
-        connect(_socket, &QTcpSocket::bytesWritten, [] (qint64 b) {
-            qDebug() << "bytesWritten" << b;
-        });
-        connect(_socket, &QTcpSocket::readyRead, this, &DeviceCommander::socketReadyRead);
-        connect(_socket, &QTcpSocket::stateChanged, this, &DeviceCommander::socketStateChanged);
-        _socket->connectToHost(ip(), port().toInt());
-        setWaitForAnswer(true);
+    if (_socket) {
+        disconnect(_socket);
+        _socket->deleteLater();
     }
+    _socket = new QTcpSocket(this);
+    qDebug() << __FILE__ << __LINE__ << "socet state = " << _socket->state();
+    connect(_socket, &QTcpSocket::connected, [] {
+        qDebug() << __FILE__ << ":" << __LINE__ << "Connected";
+    });
+    connect(_socket, &QTcpSocket::disconnected, this, [this] {
+        qDebug() << __FILE__ << ":" << __LINE__ << "Disconnected" << sender();
+    });
+    connect(_socket, &QTcpSocket::bytesWritten, [] (qint64 b) {
+        qDebug() << __FILE__ << ":" << __LINE__ << "bytesWritten" << b;
+    });
+    connect(_socket, &QTcpSocket::readyRead, this, &DeviceCommander::socketReadyRead);
+    connect(_socket, &QTcpSocket::stateChanged, this, &DeviceCommander::socketStateChanged);
+    __timerId = startTimer(_timeOut);
+    _socket->connectToHost(ip(), port().toInt());
+    setWaitForAnswer(true);
+
     socketSendMsg();
 
     return Error::None;
@@ -131,32 +138,32 @@ DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &comman
 
 QStringList DeviceCommander::argsFunc(Command command) const {
     switch (command) {
-        case Command::SetParameter:
-            return argsSetParameter();
-        case Command::Date:
-            return argsDate();
-        case Command::ContentType:
-            return argsContentType();
-        case Command::UniqueId:
-            return argsUniqueId();
-        case Command::StatusString:
-            return argsStatusString();
-        case Command::VideoRecordMode:
-            return argsVideoRecordMode();
-        case Command::VideoDuration:
-            return argsVideoDuration();
-        case Command::ChargeDetectDelay:
-            return argsChargeDetectDelay();
-        case Command::LogWrite:
-            return argsLogWrite();
-        case Command::VideoRotation:
-            return argsVideoRotation();
-        case Command::FtpUsername:
-            return argsFtpUsername();
-        case Command::FtpPassword:
-            return argsFtpPassword();
-        case Command::Count:
-            Q_ASSERT(false);
+    case Command::SetParameter:
+        return argsSetParameter();
+    case Command::Date:
+        return argsDate();
+    case Command::ContentType:
+        return argsContentType();
+    case Command::UniqueId:
+        return argsUniqueId();
+    case Command::StatusString:
+        return argsStatusString();
+    case Command::VideoRecordMode:
+        return argsVideoRecordMode();
+    case Command::VideoDuration:
+        return argsVideoDuration();
+    case Command::ChargeDetectDelay:
+        return argsChargeDetectDelay();
+    case Command::LogWrite:
+        return argsLogWrite();
+    case Command::VideoRotation:
+        return argsVideoRotation();
+    case Command::FtpUsername:
+        return argsFtpUsername();
+    case Command::FtpPassword:
+        return argsFtpPassword();
+    case Command::Count:
+        Q_ASSERT(false);
     }
     return {};
 }
@@ -354,19 +361,33 @@ void DeviceCommander::setFtpPassword(const QString &newFtpPassword) {
 
 void DeviceCommander::socketReadyRead() {
     Q_ASSERT(_socket);
-    qDebug() << "DeviceCommander::socketReadyRead: " << _socket->readAll();
+    qDebug() << __FILE__ << ":" << __LINE__
+             << "DeviceCommander::socketReadyRead: " << _socket->readAll();
     setWaitForAnswer(false);
 }
 
 void DeviceCommander::socketStateChanged(QAbstractSocket::SocketState socketState) {
-    Q_ASSERT(_socket);
-    qDebug() << "StateChanged" << socketState;
+    auto socket = qobject_cast<QTcpSocket*>(sender());
+    if (__timerId && socket == _socket
+            && socketState != QAbstractSocket::ConnectingState
+            && socketState != QAbstractSocket::HostLookupState) {
+        qDebug() << __FILE__ << __LINE__ << socketState;
+        killTimer(__timerId);
+        __timerId = 0;
+    }
+    qDebug() << __FILE__ << ":" << __LINE__ << "StateChanged" << socket << socketState << _waitForAnswer;
     switch (socketState) {
-        case QAbstractSocket::SocketState::ConnectedState:
-            socketSendMsg();
-            break;
-        default:
-            break;
+    case QAbstractSocket::SocketState::ConnectedState:
+        socketSendMsg();
+        break;
+    case QAbstractSocket::SocketState::UnconnectedState:
+        if (socket == _socket) {
+            setError(Error::CantConnecting);
+            setWaitForAnswer(false);
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -381,7 +402,7 @@ void DeviceCommander::socketSendMsg() {
         return;
     }
     _socket->write(_sendMsg);
-    qDebug() << "_socket->flush() = " << _socket->flush();
+    qDebug() << __FILE__ << ":" << __LINE__ << "_socket->flush() = " << _socket->flush();
     _sendMsg.clear();
     setWaitForAnswer(true);
 }
@@ -395,4 +416,26 @@ void DeviceCommander::setWaitForAnswer(bool newWaitForAnswer) {
         return;
     _waitForAnswer = newWaitForAnswer;
     emit waitForAnswerChanged();
+}
+
+DeviceCommander::Error DeviceCommander::error() const {
+    return _error;
+}
+
+void DeviceCommander::setError(Error newError) {
+    if (_error == newError)
+        return;
+    _error = newError;
+    emit errorChanged();
+}
+
+void DeviceCommander::timerEvent(QTimerEvent *event) {
+    if (event->timerId() == __timerId) {
+        qDebug() << __FILE__ << __LINE__ << "timer! ! !";
+        killTimer(__timerId);
+        __timerId = 0;
+        _socket->abort();
+    } else {
+        Q_ASSERT(false);
+    }
 }

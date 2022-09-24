@@ -1,6 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Dialogs 1.3
+
+import Qt.labs.settings 1.1
 
 import "common" as Common
 
@@ -11,10 +14,27 @@ ColumnLayout {
 
     spacing: 0
 
+    Settings {
+        category: "Window"
+        property alias pathDir: path.text
+        property alias deleteAfterDownloading: cbDeleteAfterDownloading.checked
+    }
+
+    FileDialog {
+        id: fileDialog
+        title: "Выбери место для сохранения"
+        selectFolder: true
+        onAccepted: {
+            path.text = (fileDialog.fileUrl + "").replace("file:///", "");
+        }
+    }
+
     Common.TextH1 {
         id: selectDevice
 
-        text: "Выбранное устройство"
+        text: core.currentDeviceCam.ip
+              ? "Выбранное устройство: " + core.currentDeviceCam.ip
+              : "Устройство не выбранно"
     }
 
     Item {
@@ -81,9 +101,11 @@ ColumnLayout {
                 id: path
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                text: core.deviceController.downloadFolder
-                textInput.onEditingFinished: {
-                    core.deviceController.downloadFolder = text;
+
+                Binding {
+                    target: core.deviceController
+                    property: "downloadFolder"
+                    value: path.text
                 }
             }
 
@@ -91,6 +113,7 @@ ColumnLayout {
                 id: selectDirBtn
                 Layout.alignment: Qt.AlignRight
                 text: "Выбрать"
+                onClicked: fileDialog.open()
             }
         } // RowLayout
 
@@ -98,6 +121,7 @@ ColumnLayout {
             spacing: 8
             width: parent.width
             Common.CheckBox {
+                id: cbDeleteAfterDownloading
                 text: "Удалить после загрузки"
             }
             RowLayout {

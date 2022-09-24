@@ -78,7 +78,7 @@ Item {
                     right: parent.right
                     verticalCenter: parent.verticalCenter
                 }
-                visible: root.currentIndex === TabArea.TabIndex.TabSettings
+                visible: enabled && root.currentIndex === TabArea.TabIndex.TabSettings
                 color: Common.Theme.borderNormal
                 width: 1
                 height: parent.height - 16
@@ -92,7 +92,7 @@ Item {
                     right: parent.right
                     verticalCenter: parent.verticalCenter
                 }
-                visible: root.currentIndex === TabArea.TabIndex.TabFiles
+                visible: enabled && root.currentIndex === TabArea.TabIndex.TabFiles
                 color: Common.Theme.borderNormal
                 width: 1
                 height: parent.height - 16

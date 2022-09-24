@@ -2,15 +2,38 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 
+import Qt.labs.settings 1.1
 
 import "common" as Common
+import cpp.Core 43.21
 
 Window {
+    id: root
     width: 980
-    height: 600
+    height: 700
     visible: true
-    title: qsTr("Hello World")
+    title: qsTr("Atest qml")
     color: Common.Theme.bg
+
+    Settings {
+        category: "Window"
+        property alias x: root.x
+        property alias y: root.y
+        property alias width: root.width
+        property alias height: root.height
+    }
+
+    Common.Text1Input {
+        id: stateBar
+        anchors {
+            right: parent.right
+            top: parent.top
+            margins: 8
+        }
+        readOnly: true
+
+        text: core.state
+    }
     FtpDevices {
         id: ftpDevices
         anchors {
@@ -22,6 +45,22 @@ Window {
             bottomMargin: 40
         }
         width: parent.width / 3
+
+        controlState: {
+            switch(core.state) {
+            case Core.State.ProcessAutoDownloading:
+                return FtpDevices.ControlState.Downloading;
+            case Core.State.None:
+                return FtpDevices.ControlState.None;
+            default:
+                return FtpDevices.ControlState.Processing;
+            }
+        }
+
+
+        onBtnFindDevsClicked: core.findDev()
+        onBtnDevAutoStartClicked: core.runAutoDownloading()
+        onBtnDevAutoStopClicked: core.stopAutoDownloading()
     }
     TabArea {
         anchors {
@@ -34,6 +73,7 @@ Window {
             bottom: parent.bottom
             bottomMargin: 40
         }
+        enabled: core.state === Core.State.None && core.devicesFound > 0
     }
     Common.Text1Input {
         id: statusBar
@@ -49,6 +89,7 @@ Window {
         Connections {
             target: core
             function onShowMessage(msg, timeoutMilisec) {
+                statusBarTimer.stop();
                 console.info("[showMessage]: \"", msg, "\",", timeoutMilisec, "ms")
                 if (timeoutMilisec > 0) {
                     statusBarTimer.interval = timeoutMilisec;

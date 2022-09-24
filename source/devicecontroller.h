@@ -14,13 +14,19 @@ class DevWorker;
 class DeviceController : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString downloadFolder READ downloadFolder WRITE setDownloadFolder NOTIFY downloadFolderChanged)
+    Q_PROPERTY(bool stoped READ stoped WRITE setStoped NOTIFY stopedChanged)
+    Q_PROPERTY(State state READ state WRITE setState NOTIFY stateChanged)
 public:
     enum class State {
         None,
+        // Поиск устройств.
+        FindingDevices,
+        // Скачивание файлов.
         Downloding,
-        Finished,
-
-        Count
+        // Ожидание перед повторным запуском.
+        Wait,
+        // Ошибка (при запуске FindIP.exe).
+        FatalError
     };
     Q_ENUM(State)
     explicit DeviceController(QObject *parent = nullptr);
@@ -32,23 +38,43 @@ public:
     const QString &downloadFolder() const;
     void setDownloadFolder(const QString &newDownloadFolder);
 
+    bool stoped() const;
+    void setStoped(bool newStoped);
+
+    State state() const;
+    void setState(State newState);
+
+    int waitTimeMs() const;
+    void setWaitTimeMs(int newWaitTimeMs);
+
 public slots:
     void startDownloading();
+    void stopDownloading();
 
 signals:
     void started();
     void finished();
-    void downloadFolderChanged();
 
+    void downloadFolderChanged();
+    void stopedChanged();
+    void stateChanged();
+
+protected:
+    void timerEvent(QTimerEvent *event) override;
 private slots:
     void workerStarting();
 private:
+    void findDev();
     void configFtpServer(int indexDev);
     DeviceModel *_devModel;
     QString _downloadFolder;
     QHash<int, DevWorker*> _devWorkers;
-    int _countParallel = 2;
+    int _countParallel = 2; /// \todo Показать Жене. Количество параллельных скачиваний
     int _currentDev = 0;
+    bool _stoped = false;
+    State _state = State::None;
+    int _waitTimeMs = 10000; /// Ожидание перед повторным запуском
+    int __timerIdWait = 0;
 };
 
 //!
@@ -79,6 +105,7 @@ public:
     };
     DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent = nullptr);
     DevWorker(int index, const DeviceCam& dev, QString folderPath, QStringList subDirs, QObject *parent = nullptr);
+    virtual ~DevWorker();
     DevWorker(const DevWorker&) = delete;
     DevWorker& operator=(const DevWorker&) = delete;
 
@@ -97,6 +124,7 @@ public:
 
 public slots:
     void startDownloading();
+    void stopDownloading();
 
 signals:
     void stateChanged();
@@ -127,4 +155,5 @@ private:
     qint64 __progressPrevDoneInFile = 0;
 
     QList<QUrlInfo> _filesToDownload;
+    bool _stoped = false;
 };

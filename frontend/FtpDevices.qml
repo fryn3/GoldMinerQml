@@ -8,8 +8,23 @@ import cpp.Core 43.21
 
 /// Список фтп устройств, кнопка поиска
 Item {
+    id: root
 
-    property int currentIndex: core.deviceModel.rowCount ? ftpDevListView.currentIndex : -1
+    enum ControlState {
+        // Когда нет девайсов.
+        None,
+        // Когда идет какой то процес, кроме автоскачивания.
+        Processing,
+        // Идет процесс автоскачивания.
+        Downloading
+    }
+
+    property int controlState: FtpDevices.ControlState.None
+    readonly property int currentIndex: core.deviceModel.rowCount ? ftpDevListView.currentIndex : -1
+
+    signal btnFindDevsClicked
+    signal btnDevAutoStartClicked
+    signal btnDevAutoStopClicked
 
     implicitWidth: col.implicitWidth
     implicitHeight: col.implicitHeight
@@ -41,31 +56,25 @@ Item {
                     to: model.totalSize
                     value: model.doneSize
                 }
-//                progressBar.value: Math.random() //model.index
-
             }
         }
         Common.Button {
             id: btnFindDevs
             Layout.fillWidth: true
+            enabled: controlState === FtpDevices.ControlState.None
             height: 40
             text: "Поиск устройств"
-            onClicked: core.findDev()
+            onClicked: root.btnFindDevsClicked()
         }
         Common.Button {
             Layout.fillWidth: true
+            enabled: controlState === FtpDevices.ControlState.Downloading
+                     || controlState === FtpDevices.ControlState.None
             height: 40
-            text: "Авто скачивание"
-            onClicked: core.deviceController.startDownloading()
+            text: controlState === FtpDevices.ControlState.Downloading
+                  ? "Остановить скачивание" : "Автоскачивание"
+            onClicked: controlState === FtpDevices.ControlState.Downloading
+                       ? root.btnDevAutoStopClicked() : root.btnDevAutoStartClicked()
         }
     }
-    states: [
-        State {
-            when: core.state === Core.State.FindingDevices
-            PropertyChanges {
-                target: btnFindDevs
-                enabled: false
-            }
-        }
-    ]
 }

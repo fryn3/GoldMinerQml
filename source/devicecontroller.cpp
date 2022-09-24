@@ -3,7 +3,10 @@
 #include "myfunc.h"
 
 #include <QDir>
+#include <QProcess>
+#include <QTemporaryFile>
 #include <QThread>
+#include <QTimerEvent>
 
 DeviceController::DeviceController(QObject *parent)
     : QObject{parent} { }
@@ -17,20 +20,104 @@ void DeviceController::startDownloading() {
     Q_ASSERT(!downloadFolder().isEmpty());
     Q_ASSERT(_devWorkers.isEmpty());
     emit started();
+    setStoped(false);
     _currentDev = 0;
-    workerStarting();
+    findDev();
+}
+
+void DeviceController::stopDownloading() {
+    _stoped = true;
+    if (__timerIdWait) {
+        killTimer(__timerIdWait);
+        __timerIdWait = 0;
+    }
+    qDebug() << __FILE__ << __LINE__ << "_devWorkers.size()" << _devWorkers.size();
+    auto keys = _devWorkers.keys();
+    for (const auto & wKey: keys) {
+        _devWorkers[wKey]->stopDownloading();
+    }
+}
+
+void DeviceController::timerEvent(QTimerEvent *event) {
+    Q_ASSERT(event->timerId() == __timerIdWait);
+    _currentDev = 0;
+    killTimer(__timerIdWait);
+    __timerIdWait = 0;
+    findDev();
+}
+
+void DeviceController::findDev() {
+    setState(State::FindingDevices);
+    _devModel->clear();
+    QFile findIpExe(":/resources/soft/FindIP.exe");
+    QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
+    newTempFile->rename(newTempFile->fileName() + ".exe");
+    QProcess *p = new QProcess(this);
+    connect(p, &QProcess::errorOccurred, this, [this, newTempFile] {
+        qDebug() << __FILE__ << __LINE__ << "Не получилось запустить прогу" << newTempFile->fileName();
+        setState(State::FatalError);
+        sender()->deleteLater();
+        newTempFile->remove();
+        newTempFile->deleteLater();
+        emit finished();
+    });
+
+    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            p, &QProcess::deleteLater);
+    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            [this, newTempFile] {
+        newTempFile->remove();
+        newTempFile->deleteLater();
+        if (_devModel->rowCount() > 0) {
+            setState(State::Downloding);
+            workerStarting();
+        } else {
+            setState(State::Wait);
+            __timerIdWait = startTimer(_waitTimeMs);
+        }
+    });
+    connect(p, &QProcess::readyReadStandardOutput, this, [this] {
+        auto p = dynamic_cast<QProcess*>(sender());
+        QString s = p->readAllStandardOutput();
+        auto rows = s.split("\r\n", Qt::SkipEmptyParts);
+        for (auto &row: rows) {
+            auto words = row.split(" ");
+            auto ip = words.at(1);
+            auto mac = words.at(3);
+            auto oName = words.at(5);
+            if (oName != "lwip0") {
+                continue;
+            }
+            _devModel->addDevice(ip, mac, oName);
+        }
+    });
+    p->start(newTempFile->fileName(), {"VideoServer"});
 }
 
 void DeviceController::workerStarting() {
     if (sender()) {
         auto s = qobject_cast<DevWorker*>(sender());
+        qDebug() << __FILE__ << __LINE__ << s << s->indexRow;
         _devWorkers.remove(s->indexRow);
         s->deleteLater();
     }
+    if (_stoped) {
+        if (_devWorkers.isEmpty()) {
+            setState(State::None);
+            emit finished();
+        } else {
+            qDebug() << __FILE__ << ":" << __LINE__ << "I'm here" << _devWorkers.size();
+        }
+        return;
+    }
     while (_devWorkers.size() < _countParallel) {
         if (_currentDev >= _devModel->rowCount()) {
-            qDebug() << "В моделе девайсы закончились.";
-            emit  finished();
+            if (_devWorkers.isEmpty()) {
+                qDebug() << __FILE__ << ":" << __LINE__ << "Wow! I'm waiting!";
+                setState(State::Wait);
+                __timerIdWait = startTimer(_waitTimeMs);
+            }
+            qDebug() << __FILE__ << ":" << __LINE__ << "Mmm. I'm here";
             return;
         }
         configFtpServer(_currentDev);
@@ -46,7 +133,6 @@ void DeviceController::workerStarting() {
 
         connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
         connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
-            qDebug() << "DeviceController total" << devWorker->progressTotal();
             _devModel->set(devWorker->indexRow, devWorker->progressTotal(), DeviceModel::DmTotalSizeRole);
         });
         connect(devWorker, &DevWorker::progressDoneChanged, this, [this, devWorker] {
@@ -66,6 +152,36 @@ void DeviceController::configFtpServer(int indexDev) {
     _devModel->set(indexDev, username, DeviceModel::DmFtpUsernameRole);
     _devModel->set(indexDev, password, DeviceModel::DmFtpPasswordRole);
 
+}
+
+int DeviceController::waitTimeMs() const {
+    return _waitTimeMs;
+}
+
+void DeviceController::setWaitTimeMs(int newWaitTimeMs) {
+    _waitTimeMs = newWaitTimeMs;
+}
+
+DeviceController::State DeviceController::state() const {
+    return _state;
+}
+
+void DeviceController::setState(State newState) {
+    if (_state == newState)
+        return;
+    _state = newState;
+    emit stateChanged();
+}
+
+bool DeviceController::stoped() const {
+    return _stoped;
+}
+
+void DeviceController::setStoped(bool newStoped) {
+    if (_stoped == newStoped)
+        return;
+    _stoped = newStoped;
+    emit stopedChanged();
 }
 
 const QString &DeviceController::downloadFolder() const {
@@ -102,12 +218,15 @@ DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, 
 DevWorker::DevWorker(int index, const DeviceCam &dev, QString folderPath, QStringList subDirs, QObject *parent)
     : DevWorker(index, dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, subDirs, parent) { }
 
+DevWorker::~DevWorker() noexcept { _ftpModel.abort(); }
+
 DevWorker::State DevWorker::state() const {
     return _state;
 }
 
 void DevWorker::startDownloading() {
     emit started();
+    _stoped = false;
     auto error = (_commander.sendCommands({ DeviceCommander::Command::SetParameter
                                             , DeviceCommander::Command::VideoRecordMode
                                             , DeviceCommander::Command::FtpUsername
@@ -116,7 +235,48 @@ void DevWorker::startDownloading() {
     setState(State::InitFtp);
 }
 
+void DevWorker::stopDownloading()
+{
+    _stoped = true;
+    if (state() == State::None
+            || state() == State::InitFtp) {
+        emit finished();
+        return;
+    }
+    _ftpModel.abort();
+}
+
 void DevWorker::stateMachine() {
+    if (_stoped) {
+        emit finished();
+        return;
+    }
+
+    if (_commander.error() != DeviceCommander::Error::None) {
+        qDebug() << __FILE__ << __LINE__ << _commander.error();
+        switch(_commander.error()) {
+        case DeviceCommander::Error::CantConnecting:
+            _commander.setError(DeviceCommander::Error::None);
+            break;
+        case DeviceCommander::Error::None:
+        case DeviceCommander::Error::MissArgument:
+        case DeviceCommander::Error::BadArgument:
+        case DeviceCommander::Error::WaitForAnswer: {
+            qDebug() << _commander.error();
+            Q_ASSERT(false);
+            // это не сохраняем в поле ошибки а возвращаем через sendCommands().
+            break;
+        }
+        case DeviceCommander::Error::Count:
+            Q_ASSERT(false);
+            break;
+        }
+        emit finished();
+        return;
+    }
+
+
+
     switch (state()) {
     case State::None: {
         break;
@@ -139,8 +299,13 @@ void DevWorker::stateMachine() {
         if (!_ftpModel.isDone()) {
             break;
         }
-        _filesToDownload = _ftpModel.files().toList();
         setProgressDone(0);
+        _filesToDownload = _ftpModel.files().toList();
+        if (_filesToDownload.isEmpty()) {
+            setProgressTotal(1);
+            setProgressDone(1);
+            setState(State::AllFilesDownloded);
+        }
         for (const auto & f: _filesToDownload) {
             if (f.isDir()) {
                 continue;
@@ -158,7 +323,7 @@ void DevWorker::stateMachine() {
         while (!_filesToDownload.isEmpty()) {
             auto url = _filesToDownload.takeFirst();
             if (url.isDir()) {
-                qDebug() << "DevWorker::stateMachine" << "wow" << url.name() << "is dir";
+                qDebug() << __FILE__ << ":" << __LINE__ << "DevWorker::stateMachine" << "wow" << url.name() << "is dir";
                 continue;
             }
             urlInfo = std::move(url);
@@ -166,7 +331,7 @@ void DevWorker::stateMachine() {
         }
         if (!urlInfo.isValid()) {
             Q_ASSERT(_filesToDownload.isEmpty());
-            qDebug() << "DevWorker::stateMachine" << "Закончили прохождение по файлам";
+            qDebug() << __FILE__ << ":" << __LINE__ << "DevWorker::stateMachine" << "Закончили прохождение по файлам";
             setState(State::AllFilesDownloded);
             break;
         }
@@ -189,11 +354,12 @@ void DevWorker::stateMachine() {
         __progressPrevDoneInFile = 0;
         Q_ASSERT(_file.open(QIODevice::WriteOnly));
         _ftpModel.get(urlInfo.name(), &_file);
-//        _ftpModel.remove(urlInfo.name()); /// \todo uncomment me
+        _ftpModel.remove(urlInfo.name());
         break;
     }
     case State::AllFilesDownloded: {
         _file.close();
+        setProgressDone(progressTotal());
         emit finished();
         break;
     }

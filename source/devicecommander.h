@@ -21,6 +21,7 @@ class DeviceCommander : public QObject {
     Q_PROPERTY(QString videoRotation READ videoRotation WRITE setVideoRotation NOTIFY videoRotationChanged FINAL)
     Q_PROPERTY(QString ftpUsername READ ftpUsername WRITE setFtpUsername NOTIFY ftpUsernameChanged FINAL)
     Q_PROPERTY(QString ftpPassword READ ftpPassword WRITE setFtpPassword NOTIFY ftpPasswordChanged FINAL)
+    Q_PROPERTY(Error error READ error WRITE setError NOTIFY errorChanged)
 public:
     static const QString ITEM_NAME;     ///< DeviceCommander
     static const bool IS_QML_REG;
@@ -51,6 +52,8 @@ public:
         BadArgument,
         // Отправляем команду недождавшись ответа.
         WaitForAnswer,
+        // Не смог подключиться к хосту.
+        CantConnecting,
 
         Count
     };
@@ -120,6 +123,9 @@ public:
     const QString &ftpPassword() const;
     void setFtpPassword(const QString &newFtpPassword);
 
+    Error error() const;
+    void setError(Error newError);
+
 signals:
     void waitForAnswerChanged();
 
@@ -137,6 +143,10 @@ signals:
     void ftpUsernameChanged();
     void ftpPasswordChanged();
 
+    void errorChanged();
+
+protected:
+    void timerEvent(QTimerEvent *event) override;
 private slots:
     void socketReadyRead();
     void socketStateChanged(QAbstractSocket::SocketState socketState);
@@ -160,6 +170,10 @@ private:
     QString _videoRotation;
     QString _ftpUsername;
     QString _ftpPassword;
+    Error _error;
+    int _timeOut = 3000; // Время для сторожевого таймера
+    int __timerId = 0;
+
 };
 
 inline uint qHash(const DeviceCommander::Command& c) { return qHash(int(c)); }

@@ -7,6 +7,7 @@ TextInput {
     font.weight: Theme.fontText1Weight
     color: enabled ? Theme.blackDark : Theme.blackLight
     focus: true
+    clip: true
     cursorVisible: activeFocus
 
     MouseArea {

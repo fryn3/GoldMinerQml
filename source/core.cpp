@@ -17,54 +17,75 @@ const bool Core::IS_QML_REG = true;//My::qmlRegisterType<Core>(Core::ITEM_NAME);
 Core::Core(QObject *parent)
     : QObject{parent} {
 
-    connect(this, &Core::devModelCurrentIndexChanged, [] {
-        qDebug() << "Core::devModelCurrentIndexChanged";
-    });
-    connect(this, &Core::stateChanged, [] {
-        qDebug() << "Core::stateChanged";
-    });
-
-    connect(&_devCommander, &DeviceCommander::waitForAnswerChanged, [] {
-        qDebug() << "DeviceCommander::waitForAnswerChanged";
-    });
-    connect(ftpModel(), &FtpModel::errorChanged, [] {
-        qDebug() << "FtpModel::errorChanged";
-    });
-    connect(ftpModel(), &FtpModel::done, [] {
-        qDebug() << "FtpModel::done";
-    });
     connect(this, &Core::devModelCurrentIndexChanged, this, [this] {
         if (ftpModel()->state() != QFtp::Unconnected) {
             ftpModel()->close();
         }
     });
-    connect(this, &Core::devModelCurrentIndexChanged, this, &Core::updateCurrentDeviceCam, Qt::DirectConnection);
-    connect(this, &Core::devModelCurrentIndexChanged, this, &Core::stateMachine);
-    connect(this, &Core::stateChanged, this, &Core::stateMachine);
+    connect(this, &Core::devModelCurrentIndexChanged
+            , this, &Core::updateCurrentDeviceCam, Qt::DirectConnection);
+    connect(this, &Core::devModelCurrentIndexChanged, &Core::stateMachine);
+    connect(this, &Core::stateChanged, &Core::stateMachine);
 
     connect(&_devCommander, &DeviceCommander::waitForAnswerChanged, this, &Core::stateMachine);
     connect(ftpModel(), &FtpModel::errorChanged, this, &Core::stateMachine);
     connect(ftpModel(), &FtpModel::done, this, &Core::stateMachine);
 
-    connect(&_devModel, &DeviceModel::dataChanged, this, [this]
+    connect(devModel(), &DeviceModel::dataChanged, this, [this]
             (const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
         if (topLeft.row() <= devModelCurrentIndex()
                 && bottomRight.row() >= devModelCurrentIndex()) {
             updateCurrentDeviceCam();
         }
     }, Qt::DirectConnection);
+    connect(devModel(), &DeviceModel::rowCountChanged, this, &Core::devicesFoundChanged);
 
-    _devController.setDeviceModel(devModel());
+    devController()->setDeviceModel(devModel());
 
-    connect(&_devController, &DeviceController::finished, [] {
-        qDebug() << "DeviceController::finished";
+    connect(devController(), &DeviceController::downloadFolderChanged
+            , this, &Core::deviceControllerPathChanged);
+
+    connect(devController(), &DeviceController::finished, [this] {
+        Q_ASSERT(devController()->state() == DeviceController::State::None
+                 || devController()->state() == DeviceController::State::FatalError);
+        setState(State::None);
+    });
+
+    connect(devController(), &DeviceController::stateChanged
+            , this, [this] {
+        switch (devController()->state()) {
+        case DeviceController::State::None: {
+            Q_ASSERT(devController()->stoped() == true);
+            emit showMessage("Автозагрузка остановлена");
+            break;
+        }
+        case DeviceController::State::FindingDevices: {
+            emit showMessage("Автозагрузка: идет поиск устройств");
+            break;
+        }
+        case DeviceController::State::Downloding: {
+            emit showMessage("Автозагрузка: идет загрузка файлов");
+            break;
+        }
+        case DeviceController::State::Wait: {
+            emit showMessage(QString("Автозагрузка: файлы загружены, через %1 секунд повтор.")
+                             .arg(devController()->waitTimeMs() / 1000));
+            break;
+        }
+        case DeviceController::State::FatalError: {
+            emit showMessage("Автозагрузка остановлена! Ошибка при получинии списка устройств");
+            break;
+        }
+        }
     });
 
 }
 
+Core::~Core() noexcept { _ftpModel.abort(); }
+
 void Core::findDev() {
     setState(State::FindingDevices);
-    _devModel.clear();
+    devModel()->clear();
     QFile findIpExe(":/resources/soft/FindIP.exe");
     QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
     newTempFile->rename(newTempFile->fileName() + ".exe");
@@ -82,10 +103,15 @@ void Core::findDev() {
             p, &QProcess::deleteLater);
     connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             [this, newTempFile] {
-        emit showMessage("Поиск устройств завершен", 5000);
-        setState(State::None);
         newTempFile->remove();
         newTempFile->deleteLater();
+        if (devModel()->rowCount() > 0) {
+            emit showMessage(QString("Поиск завершен. Найдено %1 устройства!")
+                                                    .arg(devModel()->rowCount()), 5000);
+        } else {
+            emit showMessage("Поиск завершен... Устройства не найдены!", 5000);
+        }
+        setState(State::None);
     });
     connect(p, &QProcess::readyReadStandardOutput, this, [this] {
         auto p = dynamic_cast<QProcess*>(sender());
@@ -99,17 +125,37 @@ void Core::findDev() {
             if (oName != "lwip0") {
                 continue;
             }
-            _devModel.addDevice(ip, mac, oName);
+            devModel()->addDevice(ip, mac, oName);
         }
-        setState(State::None);
     });
     p->start(newTempFile->fileName(), {"VideoServer"});
     emit showMessage("Поиск устройств...");
 }
 
+void Core::runAutoDownloading() {
+    if (deviceControllerPath().isEmpty()) {
+        emit showMessage("Ошибка! Выберите папку для загрузки!");
+        return;
+    }
+    emit showMessage("Начало автоскачивания", 5000);
+    setState(State::ProcessAutoDownloading);
+    devController()->startDownloading();
+}
+
+void Core::stopAutoDownloading() {
+    emit showMessage("Идет процесс остановки автоскачивания!");
+    devController()->stopDownloading();
+    setState(State::StoppingAutoDownloading);
+}
+
 void Core::initFtpServer() {
-    QString username = currentDeviceCam().ftpUsername; //devModel()->get(devModelCurrentIndex(), DeviceModel::DmFtpUsernameRole).toString();
-    QString password = currentDeviceCam().ftpPassword; //devModel()->get(devModelCurrentIndex(), DeviceModel::DmFtpPasswordRole).toString();
+    if (ftpModel()->state() == QFtp::State::Connected
+            || ftpModel()->state() == QFtp::State::LoggedIn) {
+        ftpModel()->close();
+    }
+
+    QString username = currentDeviceCam().ftpUsername;
+    QString password = currentDeviceCam().ftpPassword;
 
     if (username.isEmpty() || password.isEmpty()) {
         qDebug() << "genRandom";
@@ -123,7 +169,7 @@ void Core::initFtpServer() {
     _devCommander.setData(currentDeviceCam());
 
     auto error = (_devCommander.sendCommands({ DeviceCommander::Command::SetParameter
-                                            , DeviceCommander::Command::VideoRecordMode
+//                                            , DeviceCommander::Command::VideoRecordMode
                                             , DeviceCommander::Command::FtpUsername
                                             , DeviceCommander::Command::FtpPassword }));
     Q_ASSERT(error == DeviceCommander::Error::None);
@@ -134,17 +180,28 @@ DeviceController *Core::devController() {
     return &_devController;
 }
 
+QString Core::deviceControllerPath() const {
+    return _devController.downloadFolder();
+}
+
 void Core::showFtpFiles() {
+    Q_ASSERT(ftpModel()->isDone());
+    Q_ASSERT(!_devCommander.waitForAnswer());
+    emit showMessage("Получения списка файлов");
     initFtpServer();
     setState(State::ShowFtpFilesInitFtp);
 }
 
 void Core::readDevConfig() {
+    Q_ASSERT(ftpModel()->isDone());
+    Q_ASSERT(!_devCommander.waitForAnswer());
+    emit showMessage("Чтение настроек");
     initFtpServer();
     setState(State::ReadingConfigInitFtp);
 }
 
 void Core::writeDevConfig() {
+    Q_ASSERT(!_devCommander.waitForAnswer());
     _devCommander.setData(currentDeviceCam());
 
     Q_ASSERT(_devCommander.sendCommands() == DeviceCommander::Error::None);
@@ -164,28 +221,52 @@ void Core::stateMachine() {
 
     qDebug() << __FILE__ << __LINE__ << state();
 
+    if (_devCommander.error() != DeviceCommander::Error::None) {
+        qDebug() << __FILE__ << __LINE__ << _devCommander.error();
+        switch(_devCommander.error()) {
+        case DeviceCommander::Error::CantConnecting:
+            _devCommander.setError(DeviceCommander::Error::None);
+            emit showMessage("Не смог подключиться к хосту!");
+            break;
+        case DeviceCommander::Error::None:
+        case DeviceCommander::Error::MissArgument:
+        case DeviceCommander::Error::BadArgument:
+        case DeviceCommander::Error::WaitForAnswer: {
+            qDebug() << _devCommander.error();
+            Q_ASSERT(false);
+            // это не сохраняем в поле ошибки а возвращаем через sendCommands().
+            break;
+        }
+        case DeviceCommander::Error::Count:
+            Q_ASSERT(false);
+            break;
+        }
+        setState(State::None);
+        return;
+    }
+
     if (ftpModel()->error()) {
-        qDebug() << ftpModel()->errorString();
+        qDebug() << __FILE__ << ":" << __LINE__ << ftpModel()->errorString();
         emit showMessage(ftpModel()->errorString());
         if (ftpModel()->state() != QFtp::Unconnected) {
             ftpModel()->close();
         }
-//        Q_ASSERT(false);
+        setState(State::None);
         return;
     }
 
     switch (state()) {
-    case State::None: {
-        break;
-    }
-    case State::FindingDevices: {
+    case State::None:
+    case State::FindingDevices:
+    case State::ProcessAutoDownloading:
+    case State::StoppingAutoDownloading: {
         break;
     }
     case State::ShowFtpFilesInitFtp: {
         if (_devCommander.waitForAnswer()) {
             break;
         }
-        QThread::sleep(1);
+        QThread::msleep(500);
         Q_ASSERT(ftpModel()->state() == QFtp::Unconnected);
         ftpModel()->connectToHost(currentDeviceCam().ip);
         ftpModel()->login(currentDeviceCam().ftpUsername,
@@ -200,7 +281,12 @@ void Core::stateMachine() {
         if (!ftpModel()->isDone()) {
             break;
         }
-        emit showMessage("Должен показаться список файлов", 5000);
+        if (ftpModel()->rowCount()) {
+            emit showMessage(QString("Получен список файлов (%1)!").arg(ftpModel()->rowCount()), 5000);
+        } else {
+            emit showMessage("На устройстве нет файлов");
+        }
+        setState(State::None);
         break;
     }
     case State::ReadingConfigInitFtp: {
@@ -246,7 +332,7 @@ void Core::stateMachine() {
         ftpModel()->close();
         _settingsFile->seek(0);
         auto settIni = _settingsFile->readAll();
-        qDebug() << " settIni = " << settIni;
+        qDebug() << __FILE__ << ":" << __LINE__ << " settIni = " << settIni;
         _devModel.parseSettingsIni(settIni, devModelCurrentIndex());
         emit showMessage("Прочитал настройки", 5000);
         setState(State::None);
@@ -291,7 +377,7 @@ int Core::devModelCurrentIndex() const {
 }
 
 void Core::setDevModelCurrentIndex(int newDevModelCurrentIndex) {
-    qDebug() << "currentIndex = " << newDevModelCurrentIndex;
+    qDebug() << __FILE__ << ":" << __LINE__ << "currentIndex = " << newDevModelCurrentIndex;
     if (_devModelCurrentIndex == newDevModelCurrentIndex)
         return;
     _devModelCurrentIndex = newDevModelCurrentIndex;
@@ -315,4 +401,8 @@ void Core::setState(State newState) {
 
 DeviceModel *Core::devModel() {
     return &_devModel;
+}
+
+int Core::devicesFound() const {
+    return _devModel.rowCount();
 }

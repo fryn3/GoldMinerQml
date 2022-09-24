@@ -10,8 +10,10 @@
 class Core : public QObject {
     Q_OBJECT
     Q_PROPERTY(DeviceModel * deviceModel READ devModel CONSTANT FINAL)
+    Q_PROPERTY(int devicesFound READ devicesFound NOTIFY devicesFoundChanged FINAL)
     Q_PROPERTY(FtpModel * ftpModel READ ftpModel CONSTANT FINAL)
     Q_PROPERTY(DeviceController * deviceController READ devController CONSTANT FINAL)
+    Q_PROPERTY(QString deviceControllerPath READ deviceControllerPath NOTIFY deviceControllerPathChanged FINAL)
     Q_PROPERTY(int devModelCurrentIndex READ devModelCurrentIndex WRITE setDevModelCurrentIndex RESET resetDevModelCurrentIndex NOTIFY devModelCurrentIndexChanged FINAL)
     Q_PROPERTY(State state READ state NOTIFY stateChanged FINAL)
     Q_PROPERTY(DeviceCam currentDeviceCam READ currentDeviceCam WRITE setCurrentDeviceCam RESET resetCurrentDeviceCam NOTIFY currentDeviceCamChanged FINAL)
@@ -24,6 +26,11 @@ public:
 
         // При нажатии на кнопку "Поиск устройств".
         FindingDevices,
+
+        // В процессе автоскачивания.
+        ProcessAutoDownloading,
+        // В процессе остановки автоскачивания.
+        StoppingAutoDownloading,
 
         // Конфиг ФТП сервера. Ожидание ответа tcp.
         ShowFtpFilesInitFtp,
@@ -48,8 +55,10 @@ public:
     Q_ENUM(State)
 
     explicit Core(QObject *parent = nullptr);
+    virtual ~Core() noexcept;
 
     DeviceModel * devModel();
+    int devicesFound() const;
 
     State state() const;
     void setState(State newState);
@@ -65,9 +74,12 @@ public:
     FtpModel * ftpModel();
 
     DeviceController *devController();
+    QString deviceControllerPath() const;
 
 public slots:
     void findDev();
+    void runAutoDownloading();
+    void stopAutoDownloading();
     void showFtpFiles();
     void readDevConfig();
     void writeDevConfig();
@@ -84,6 +96,10 @@ signals:
     void showMessage(QString msg, int timeoutMilisec = 0);
 
     void stateChanged();
+
+    void devicesFoundChanged();
+
+    void deviceControllerPathChanged();
 
     void devModelCurrentIndexChanged();
 
@@ -102,7 +118,4 @@ private:
     QTemporaryFile *_settingsFile = nullptr;
 
     DeviceController _devController;
-    // Нужно подключить констроллер к кнопке,
-    // инициализировать переменные,
-    // законнектить сигнал finished().
 };
