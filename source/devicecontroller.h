@@ -103,9 +103,10 @@ public:
 
         CountState
     };
+    Q_ENUM(State)
     DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent = nullptr);
     DevWorker(int index, const DeviceCam& dev, QString folderPath, QStringList subDirs, QObject *parent = nullptr);
-    virtual ~DevWorker();
+    virtual ~DevWorker() noexcept;
     DevWorker(const DevWorker&) = delete;
     DevWorker& operator=(const DevWorker&) = delete;
 
@@ -113,7 +114,6 @@ public:
     const QString ip;
     const QString ftpUsername;
     const QString ftpPassword;
-    const QString mode = "1"; /// \todo пусть тут будет всегда 1. Уточнить у Жени.
     const QString downloadFolder;
     const QStringList subDirs;  // deviceName -> time
 

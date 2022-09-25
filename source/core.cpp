@@ -144,8 +144,8 @@ void Core::runAutoDownloading() {
 
 void Core::stopAutoDownloading() {
     emit showMessage("Идет процесс остановки автоскачивания!");
-    devController()->stopDownloading();
     setState(State::StoppingAutoDownloading);
+    devController()->stopDownloading();
 }
 
 void Core::initFtpServer() {
@@ -169,7 +169,6 @@ void Core::initFtpServer() {
     _devCommander.setData(currentDeviceCam());
 
     auto error = (_devCommander.sendCommands({ DeviceCommander::Command::SetParameter
-//                                            , DeviceCommander::Command::VideoRecordMode
                                             , DeviceCommander::Command::FtpUsername
                                             , DeviceCommander::Command::FtpPassword }));
     Q_ASSERT(error == DeviceCommander::Error::None);

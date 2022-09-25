@@ -205,7 +205,6 @@ DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, 
     _commander.setIp(ip);
     _commander.setFtpUsername(ftpUsername);
     _commander.setFtpPassword(ftpPassword);
-    _commander.setVideoRecordMode(mode);
 
     connect(&_ftpModel, &FtpModel::done, this, &DevWorker::stateMachine);
     connect(&_ftpModel, &FtpModel::dataTransferProgress, this, [this] (qint64 done, qint64 total) {
@@ -228,7 +227,6 @@ void DevWorker::startDownloading() {
     emit started();
     _stoped = false;
     auto error = (_commander.sendCommands({ DeviceCommander::Command::SetParameter
-                                            , DeviceCommander::Command::VideoRecordMode
                                             , DeviceCommander::Command::FtpUsername
                                             , DeviceCommander::Command::FtpPassword }));
     Q_ASSERT(error == DeviceCommander::Error::None);
@@ -244,6 +242,7 @@ void DevWorker::stopDownloading()
         return;
     }
     _ftpModel.abort();
+    setState(State::None);
 }
 
 void DevWorker::stateMachine() {
@@ -274,8 +273,6 @@ void DevWorker::stateMachine() {
         emit finished();
         return;
     }
-
-
 
     switch (state()) {
     case State::None: {
