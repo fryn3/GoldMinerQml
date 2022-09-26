@@ -124,10 +124,12 @@ ColumnLayout {
                 spacing: 16
                 Common.Button {
                     Layout.fillWidth: true
+                    enabled: core.ftpModel.rowCount > 0
                     text: "Загрузить файлы"
                 }
                 Common.Button {
                     Layout.fillWidth: true
+                    enabled: core.ftpModel.rowCount > 0
                     text: "Очистить память устройства"
                 }
             } // RowLayout

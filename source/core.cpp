@@ -57,6 +57,7 @@ Core::Core(QObject *parent)
         switch (devController()->state()) {
         case DeviceController::State::None: {
             Q_ASSERT(devController()->stoped() == true);
+            devModel()->setProgressBarZero();
             emit showMessage("Автозагрузка остановлена");
             break;
         }
@@ -87,6 +88,7 @@ Core::Core(QObject *parent)
     case ConfigController::Error::NoError: {
         _devController.setCountParallel(_config.countParallel);
         _devController.setDownloadFolder(_config.autoDownloadingPath);
+        devModel()->setMacAndName(_config.devices);
         break;
     }
     case ConfigController::Error::BadJsonFormat: {
@@ -154,8 +156,7 @@ void Core::findDev() {
             if (oName != "lwip0") {
                 continue;
             }
-            auto name = _config.devices.value(mac);
-            devModel()->addDevice(ip, mac, oName, name);
+            devModel()->addDevice(ip, mac, oName);
         }
     });
     p->start(newTempFile->fileName(), {"VideoServer"});
@@ -245,6 +246,10 @@ void Core::updateCurrentDeviceCam() {
     if (d != currentDeviceCam()) {
         setCurrentDeviceCam(d);
     }
+}
+
+void Core::clearDevice() {
+
 }
 
 void Core::stateMachine() {

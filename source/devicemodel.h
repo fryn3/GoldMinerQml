@@ -53,14 +53,18 @@ public:
     void addDevice(QString ip, QString mac = {}, QString oName = {}, QString name = {});
     bool setName(QString mac, QString name);
     void parseSettingsIni(const QString &settingsIni, int row);
-    QVector<DeviceCam> devices() const;
-    QHash<QString, QString> macAndName() const;
+    const QVector<DeviceCam> &devices() const;
+    const QHash<QString, QString> &macAndName() const;
+    void setMacAndName(const QHash<QString, QString> &newMacAndName);
     void clear();
+    void setProgressBarZero();
 
 signals:
     void rowCountChanged();
 private:
+    void setMacAndName(QString mac, QString name);
     QVector<DeviceCam> _devices; // найденные девайсы
+    QHash<QString, QString> _macAndName; // {mac and name}
 };
 
 struct DeviceCam {

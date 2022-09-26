@@ -85,10 +85,7 @@ public slots:
     void readDevConfig();
     void writeDevConfig();
     void updateCurrentDeviceCam();
-
-    // Обработка изменений состояний.
-    // В теории должен отслеживать любые изменения.
-    void stateMachine();
+    void clearDevice();
 
 signals:
 
@@ -107,6 +104,10 @@ signals:
     void currentDeviceCamChanged();
 
 private:
+    // Обработка изменений состояний.
+    // В теории должен отслеживать любые изменения.
+    void stateMachine();
+
     void initFtpServer();
 
     DeviceModel _devModel;

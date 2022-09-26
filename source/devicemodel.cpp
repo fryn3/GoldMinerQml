@@ -192,9 +192,11 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
     switch (role) {
     case DmNameRole:
         _devices[index.row()].name = value.toString();
+        setMacAndName(_devices[index.row()].mac, _devices[index.row()].name);
         break;
     case DmMacRole:
         _devices[index.row()].mac = value.toString();
+        setMacAndName(_devices[index.row()].mac, _devices[index.row()].name);
         break;
     case DmIpRole:
         _devices[index.row()].ip = value.toString();
@@ -280,6 +282,8 @@ void DeviceModel::addDevice(QString ip, QString mac, QString oName, QString name
     d.ip = ip;
     d.oName = oName;
     d.name = name;
+    setMacAndName(mac, name);
+    d.name = macAndName().value(mac);
     if (!_devices.contains(d)) {
         _devices.append(d);
     }
@@ -338,23 +342,33 @@ void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
     }
 }
 
-QVector<DeviceCam> DeviceModel::devices() const {
+const QVector<DeviceCam> & DeviceModel::devices() const {
     return _devices;
 }
 
-QHash<QString, QString> DeviceModel::macAndName() const {
-    QHash<QString, QString> r;
-    for (const auto& d: _devices) {
-        if (d.name.isEmpty()) {
-            continue;
-        }
-        r.insert(d.mac, d.name);
-    }
-    return r;
+const QHash<QString, QString> & DeviceModel::macAndName() const {
+    return _macAndName;
+}
+
+void DeviceModel::setMacAndName(const QHash<QString, QString> &newMacAndName) {
+    _macAndName.insert(newMacAndName);
 }
 
 void DeviceModel::clear() {
     beginResetModel();
     _devices.clear();
     endResetModel();
+}
+
+void DeviceModel::setProgressBarZero() {
+    for (int i = 0; i < rowCount(); ++i) {
+        Q_ASSERT(set(i, 0, DmDoneSizeRole));
+    }
+}
+
+void DeviceModel::setMacAndName(QString mac, QString name) {
+    if (mac.isEmpty() || name.isEmpty()) {
+        return;
+    }
+    _macAndName.insert(mac, name);
 }
