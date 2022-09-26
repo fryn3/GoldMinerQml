@@ -44,7 +44,7 @@ public:
     Q_ENUM(Command)
 
     enum class Error {
-        None,
+        NoError,
 
         // Пропущен какой аргумент у какой-то команды.
         MissArgument,
@@ -170,7 +170,7 @@ private:
     QString _videoRotation;
     QString _ftpUsername;
     QString _ftpPassword;
-    Error _error;
+    Error _error = Error::NoError;
     int _timeOut = 3000; // Время для сторожевого таймера
     int __timerId = 0;
 

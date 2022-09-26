@@ -50,17 +50,17 @@ public:
 
     Q_INVOKABLE QVariant get(int row, int role = Qt::DisplayRole) const;
     Q_INVOKABLE bool set(int row, const QVariant &value, int role = Qt::DisplayRole);
-    void addDevice(QString ip, QString mac = {}, QString oName = {});
-    void addDeviceFromIni(QString mac, DeviceCam device);
+    void addDevice(QString ip, QString mac = {}, QString oName = {}, QString name = {});
+    bool setName(QString mac, QString name);
     void parseSettingsIni(const QString &settingsIni, int row);
-    QList<DeviceCam> devices() const;
+    QVector<DeviceCam> devices() const;
+    QHash<QString, QString> macAndName() const;
     void clear();
 
 signals:
     void rowCountChanged();
 private:
-    QList<DeviceCam> _devices; // {ip, mac} найденные девайсы
-    QMap<QString, DeviceCam> _savingDevices; // { mac, name} из ini файла
+    QVector<DeviceCam> _devices; // найденные девайсы
 };
 
 struct DeviceCam {

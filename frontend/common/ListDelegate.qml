@@ -60,7 +60,14 @@ FocusScope {
                 rightMargin: 17
                 verticalCenter: parent.verticalCenter
             }
+            opacity: value > 0
             width: 160
+
+            Behavior on opacity {
+                PropertyAnimation {
+                    duration: 200
+                }
+            }
         }
         Rectangle {
             anchors {

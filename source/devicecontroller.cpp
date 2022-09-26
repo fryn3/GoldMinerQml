@@ -31,14 +31,32 @@ void DeviceController::stopDownloading() {
         killTimer(__timerIdWait);
         __timerIdWait = 0;
     }
-    qDebug() << __FILE__ << __LINE__ << "_devWorkers.size()" << _devWorkers.size();
-    auto keys = _devWorkers.keys();
-    for (const auto & wKey: keys) {
-        _devWorkers[wKey]->stopDownloading();
+    switch (state()) {
+    case State::None:
+    case State::FatalErrorFindIp:
+    case State::FatalErrorBadDir: {
+        qDebug() << __FILE__ << __LINE__ << "I'm already stoped";
+        break;
     }
+    case State::FindingDevices:
+    case State::Wait: {
+        setState(State::None);
+        emit finished();
+        break;
+    }
+    case State::Downloding: {
+        auto keys = _devWorkers.keys();
+        for (const auto & wKey: keys) {
+            _devWorkers[wKey]->stopDownloading();
+        }
+        break;
+    }
+    }
+
 }
 
 void DeviceController::timerEvent(QTimerEvent *event) {
+    qDebug() << event->timerId() << __timerIdWait;
     Q_ASSERT(event->timerId() == __timerIdWait);
     _currentDev = 0;
     killTimer(__timerIdWait);
@@ -47,6 +65,9 @@ void DeviceController::timerEvent(QTimerEvent *event) {
 }
 
 void DeviceController::findDev() {
+    if (_stoped) {
+        return;
+    }
     setState(State::FindingDevices);
     _devModel->clear();
     QFile findIpExe(":/resources/soft/FindIP.exe");
@@ -54,11 +75,14 @@ void DeviceController::findDev() {
     newTempFile->rename(newTempFile->fileName() + ".exe");
     QProcess *p = new QProcess(this);
     connect(p, &QProcess::errorOccurred, this, [this, newTempFile] {
-        qDebug() << __FILE__ << __LINE__ << "Не получилось запустить прогу" << newTempFile->fileName();
-        setState(State::FatalError);
         sender()->deleteLater();
         newTempFile->remove();
         newTempFile->deleteLater();
+        if (_stoped) {
+            return;
+        }
+        qDebug() << __FILE__ << __LINE__ << "Не получилось запустить прогу" << newTempFile->fileName();
+        setState(State::FatalErrorFindIp);
         emit finished();
     });
 
@@ -68,15 +92,22 @@ void DeviceController::findDev() {
             [this, newTempFile] {
         newTempFile->remove();
         newTempFile->deleteLater();
+        if (_stoped) {
+            return;
+        }
         if (_devModel->rowCount() > 0) {
             setState(State::Downloding);
             workerStarting();
         } else {
+            // Если устройств нет, опять 10 секунд ждем!
             setState(State::Wait);
             __timerIdWait = startTimer(_waitTimeMs);
         }
     });
     connect(p, &QProcess::readyReadStandardOutput, this, [this] {
+        if (_stoped) {
+            return;
+        }
         auto p = dynamic_cast<QProcess*>(sender());
         QString s = p->readAllStandardOutput();
         auto rows = s.split("\r\n", Qt::SkipEmptyParts);
@@ -95,15 +126,28 @@ void DeviceController::findDev() {
 }
 
 void DeviceController::workerStarting() {
+    qDebug() << __FILE__ << __LINE__ << _stoped << _devWorkers.size();
+    DevWorker *s = nullptr;
     if (sender()) {
-        auto s = qobject_cast<DevWorker*>(sender());
+        s = qobject_cast<DevWorker*>(sender());
         qDebug() << __FILE__ << __LINE__ << s << s->indexRow;
+        switch (s->error()) {
+        case DevWorker::Error::None: {
+            break;
+        }
+        case DevWorker::Error::BadDir: {
+             setState(State::FatalErrorBadDir);
+             break;
+        }
+        }
         _devWorkers.remove(s->indexRow);
         s->deleteLater();
     }
-    if (_stoped) {
+    if (_stoped || (s && s->error() == DevWorker::Error::BadDir)) {
         if (_devWorkers.isEmpty()) {
-            setState(State::None);
+            if (_stoped) {
+                setState(State::None);
+            }
             emit finished();
         } else {
             qDebug() << __FILE__ << ":" << __LINE__ << "I'm here" << _devWorkers.size();
@@ -112,7 +156,7 @@ void DeviceController::workerStarting() {
     }
     while (_devWorkers.size() < _countParallel) {
         if (_currentDev >= _devModel->rowCount()) {
-            if (_devWorkers.isEmpty()) {
+            if (_devWorkers.isEmpty() && state() != State::Wait) {
                 qDebug() << __FILE__ << ":" << __LINE__ << "Wow! I'm waiting!";
                 setState(State::Wait);
                 __timerIdWait = startTimer(_waitTimeMs);
@@ -129,7 +173,7 @@ void DeviceController::workerStarting() {
         QString timeDir = QDateTime::currentDateTime().toString("yy_MM_dd_HH_mm_ss");
 
         auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder
-                                        , {deviceName, timeDir}, this);
+                                        , {deviceName, timeDir});
 
         connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
         connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
@@ -152,6 +196,14 @@ void DeviceController::configFtpServer(int indexDev) {
     _devModel->set(indexDev, username, DeviceModel::DmFtpUsernameRole);
     _devModel->set(indexDev, password, DeviceModel::DmFtpPasswordRole);
 
+}
+
+int DeviceController::countParallel() const {
+    return _countParallel;
+}
+
+void DeviceController::setCountParallel(int newCountParallel) {
+    _countParallel = newCountParallel;
 }
 
 int DeviceController::waitTimeMs() const {
@@ -229,7 +281,7 @@ void DevWorker::startDownloading() {
     auto error = (_commander.sendCommands({ DeviceCommander::Command::SetParameter
                                             , DeviceCommander::Command::FtpUsername
                                             , DeviceCommander::Command::FtpPassword }));
-    Q_ASSERT(error == DeviceCommander::Error::None);
+    Q_ASSERT(error == DeviceCommander::Error::NoError);
     setState(State::InitFtp);
 }
 
@@ -251,13 +303,18 @@ void DevWorker::stateMachine() {
         return;
     }
 
-    if (_commander.error() != DeviceCommander::Error::None) {
+    if (error() != Error::None) {
+        emit finished();
+        return;
+    }
+
+    if (_commander.error() != DeviceCommander::Error::NoError) {
         qDebug() << __FILE__ << __LINE__ << _commander.error();
         switch(_commander.error()) {
         case DeviceCommander::Error::CantConnecting:
-            _commander.setError(DeviceCommander::Error::None);
+            _commander.setError(DeviceCommander::Error::NoError);
             break;
-        case DeviceCommander::Error::None:
+        case DeviceCommander::Error::NoError:
         case DeviceCommander::Error::MissArgument:
         case DeviceCommander::Error::BadArgument:
         case DeviceCommander::Error::WaitForAnswer: {
@@ -339,7 +396,11 @@ void DevWorker::stateMachine() {
             newDirName.replace(QRegExp("[\\\\\\/\\:\\*\\?\\\"<>\\|]"), "_");
             if (!selectDir.cd(newDirName)) {
                 selectDir.mkdir(newDirName);
-                Q_ASSERT(selectDir.cd(newDirName));
+                if (!selectDir.cd(newDirName)) {
+                    setError(Error::BadDir);
+                    setState(State::None);
+                    return;
+                }
             }
         }
 
@@ -394,4 +455,15 @@ void DevWorker::setProgressDone(qint64 newProgressDone) {
         return;
     _progressDone = newProgressDone;
     emit progressDoneChanged();
+}
+
+DevWorker::Error DevWorker::error() const {
+    return _error;
+}
+
+void DevWorker::setError(Error newError) {
+    if (_error == newError)
+        return;
+    _error = newError;
+    emit errorChanged();
 }

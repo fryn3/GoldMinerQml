@@ -131,14 +131,12 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
 
     switch (role) {
     case Qt::DisplayRole:
-        if (_devices.at(index.row()).name.isEmpty()) {
-            if (_devices.at(index.row()).uniqueId.isEmpty()) {
-                return _devices.at(index.row()).mac;
-            } else {
-                return _devices.at(index.row()).uniqueId;
-            }
-        } else {
+        if (!_devices.at(index.row()).name.isEmpty()) {
             return _devices.at(index.row()).name;
+        } else if (!_devices.at(index.row()).uniqueId.isEmpty()) {
+            return "ID: " + _devices.at(index.row()).uniqueId;
+        } else {
+            return _devices.at(index.row()).mac;
         }
     case DmNameRole:
         return _devices.at(index.row()).name;
@@ -186,14 +184,12 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
         return false;
     }
 
-    if (role != Qt::DisplayRole
-            && !(role >= DmRoleBegin && role < DmRoleEnd)) {
+    if (role < DmRoleBegin || role >= DmRoleEnd) {
         qDebug() << __FILE__ << __LINE__ << "bad role" << index << value << role;
         return false;
     }
 
     switch (role) {
-    case Qt::DisplayRole:
     case DmNameRole:
         _devices[index.row()].name = value.toString();
         break;
@@ -250,7 +246,7 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
             || role == DmNameRole
             || role == DmMacRole
             || role == DmUniqueIdRole) {
-        emit dataChanged(index, index, { Qt::DisplayRole, role, DmStructRole });
+        emit dataChanged(index, index, { Qt::DisplayRole, DmNameRole, role, DmStructRole });
     } else if (role == DmStructRole) {
         emit dataChanged(index, index);
     } else {
@@ -264,6 +260,7 @@ QHash<int, QByteArray> DeviceModel::roleNames() const {
     for (int i = DmRoleBegin; i < DmRoleEnd; ++i) {
         r.insert(i, DM_ROLE_STR.at(i - DmRoleBegin).toUtf8());
     }
+    r.insert(Qt::DisplayRole, "display");
     return r;
 }
 
@@ -276,30 +273,26 @@ bool DeviceModel::set(int row, const QVariant &value, int role) {
     return r;
 }
 
-void DeviceModel::addDevice(QString ip, QString mac, QString oName) {
+void DeviceModel::addDevice(QString ip, QString mac, QString oName, QString name) {
     beginInsertRows(QModelIndex(), rowCount(), rowCount());
     DeviceCam d;
-    if (!mac.isEmpty()) {
-        if (_savingDevices.contains(mac)) {
-            d = _savingDevices.value(mac);
-        } else {
-            d.name = mac;
-        }
-    } else {
-        d.name = ip;
-    }
     d.mac = mac;
     d.ip = ip;
     d.oName = oName;
+    d.name = name;
     if (!_devices.contains(d)) {
         _devices.append(d);
     }
     endInsertRows();
 }
 
-void DeviceModel::addDeviceFromIni(QString mac, DeviceCam device) {
-    Q_ASSERT(mac == device.mac);
-    _savingDevices.insert(mac, device);
+bool DeviceModel::setName(QString mac, QString name) {
+    for (int i = 0; i < _devices.size(); ++i) {
+        if (_devices.at(i).mac == mac) {
+            return set(i, name, DmNameRole);
+        }
+    }
+    return false;
 }
 
 void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
@@ -318,7 +311,7 @@ void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
     const auto LOG_WRITE = QLatin1String("LOG_WRITE");
     const auto VIDEO_ROTATION = QLatin1String("VIDEO_ROTATION");
 
-    const QMap<QLatin1String, int> m {
+    const QMap<QLatin1String, int> roles {
         {UNIQUE_ID, DmUniqueIdRole},
         {STATUS_STRING, DmStatusStringRole},
         {CHARGE_DETECT_DELAY, DmChargeDetectDelayRole},
@@ -336,17 +329,28 @@ void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
         }
         auto value = rowStr.section("\"", 1, 1);
 
-        for (auto it = m.constBegin(); it != m.constEnd(); ++it) {
+        for (auto it = roles.constBegin(); it != roles.constEnd(); ++it) {
             if (rowStr.startsWith(it.key())) {
-                setData(index(row), value, it.value());
+                set(row, value, it.value());
                 break;
             }
         }
     }
 }
 
-QList<DeviceCam> DeviceModel::devices() const {
+QVector<DeviceCam> DeviceModel::devices() const {
     return _devices;
+}
+
+QHash<QString, QString> DeviceModel::macAndName() const {
+    QHash<QString, QString> r;
+    for (const auto& d: _devices) {
+        if (d.name.isEmpty()) {
+            continue;
+        }
+        r.insert(d.mac, d.name);
+    }
+    return r;
 }
 
 void DeviceModel::clear() {

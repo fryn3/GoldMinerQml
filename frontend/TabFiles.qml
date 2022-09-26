@@ -59,7 +59,6 @@ ColumnLayout {
 
     Common.GreenListView {
         id: ftpFilesLv
-        property string modelPath: model.path
         Layout.fillWidth: true
         Layout.fillHeight: true
 
@@ -72,10 +71,6 @@ ColumnLayout {
 
         onCurrentIndexChanged: {
             console.info("ZAQAZ currentIndex =", currentIndex);
-        }
-
-        onModelPathChanged: {
-            console.info("ZAQAZ modelPath =", modelPath);
         }
     }
 
@@ -102,11 +97,11 @@ ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                Binding {
-                    target: core.deviceController
-                    property: "downloadFolder"
-                    value: path.text
-                }
+//                Binding {
+//                    target: core.deviceController
+//                    property: "downloadFolder"
+//                    value: path.text
+//                }
             }
 
             Common.Button {

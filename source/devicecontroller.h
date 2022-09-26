@@ -26,7 +26,9 @@ public:
         // Ожидание перед повторным запуском.
         Wait,
         // Ошибка (при запуске FindIP.exe).
-        FatalError
+        FatalErrorFindIp,
+        // Плохой путь к папке загрузки.
+        FatalErrorBadDir
     };
     Q_ENUM(State)
     explicit DeviceController(QObject *parent = nullptr);
@@ -46,6 +48,9 @@ public:
 
     int waitTimeMs() const;
     void setWaitTimeMs(int newWaitTimeMs);
+
+    int countParallel() const;
+    void setCountParallel(int newCountParallel);
 
 public slots:
     void startDownloading();
@@ -89,6 +94,7 @@ class DevWorker : public QObject {
     Q_PROPERTY(State state READ state NOTIFY stateChanged FINAL)
     Q_PROPERTY(qint64 progressTotal READ progressTotal NOTIFY progressTotalChanged FINAL)
     Q_PROPERTY(qint64 progressDone READ progressDone NOTIFY progressDoneChanged FINAL)
+    Q_PROPERTY(Error error READ error NOTIFY errorChanged FINAL)
 public:
     enum class State {
         None,
@@ -104,6 +110,14 @@ public:
         CountState
     };
     Q_ENUM(State)
+
+    enum class Error {
+        None,
+        BadDir,
+
+    };
+    Q_ENUM(Error)
+
     DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent = nullptr);
     DevWorker(int index, const DeviceCam& dev, QString folderPath, QStringList subDirs, QObject *parent = nullptr);
     virtual ~DevWorker() noexcept;
@@ -122,6 +136,8 @@ public:
     qint64 progressTotal() const;
     qint64 progressDone() const;
 
+    Error error() const;
+
 public slots:
     void startDownloading();
     void stopDownloading();
@@ -135,12 +151,15 @@ signals:
     void progressTotalChanged();
     void progressDoneChanged();
 
+    void errorChanged();
+
 private slots:
     void stateMachine();
 private:
     void setState(State newState);
     void setProgressTotal(qint64 newProgressTotal);
     void setProgressDone(qint64 newProgressDone);
+    void setError(Error newError);
 
     State _state = State::None;
     DeviceCommander _commander;
@@ -156,4 +175,5 @@ private:
 
     QList<QUrlInfo> _filesToDownload;
     bool _stoped = false;
+    Error _error = Error::None;
 };

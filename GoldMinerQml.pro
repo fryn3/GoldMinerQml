@@ -7,6 +7,7 @@ QT += quick
 include(QFtp/QFtp.pri)
 
 HEADERS += \
+    source/configcontroller.h \
     source/core.h \
     source/devicecommander.h \
     source/devicecontroller.h \
@@ -14,6 +15,7 @@ HEADERS += \
     source/myfunc.h
 
 SOURCES += \
+        source/configcontroller.cpp \
         source/core.cpp \
         source/devicecommander.cpp \
         source/devicecontroller.cpp \

@@ -39,7 +39,7 @@ DeviceCommander::DeviceCommander(QObject *parent)
             disconnect(_socket);
             _socket->deleteLater();
             _socket = nullptr;
-            setError(Error::None);
+            setError(Error::NoError);
         }
         setWaitForAnswer(false);
     };
@@ -74,7 +74,7 @@ void DeviceCommander::setData(DeviceCam d) {
 }
 
 DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &commands) {
-    setError(Error::None);
+    setError(Error::NoError);
     if (waitForAnswer()) {
         return Error::WaitForAnswer;
     }
@@ -133,7 +133,7 @@ DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &comman
 
     socketSendMsg();
 
-    return Error::None;
+    return Error::NoError;
 }
 
 QStringList DeviceCommander::argsFunc(Command command) const {

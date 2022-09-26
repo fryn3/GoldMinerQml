@@ -2,6 +2,7 @@
 
 #include <QFile>
 #include <QObject>
+#include "configcontroller.h"
 #include "devicecommander.h"
 #include "devicecontroller.h"
 #include "devicemodel.h"
@@ -114,8 +115,9 @@ private:
     DeviceCommander _devCommander;
     FtpModel _ftpModel;
     QByteArray _settArray;
-    State _state;
+    State _state = State::None;
     QTemporaryFile *_settingsFile = nullptr;
 
     DeviceController _devController;
+    ConfigController _config;
 };

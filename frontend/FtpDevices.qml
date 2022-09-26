@@ -51,7 +51,7 @@ Item {
             delegate: Common.ListDelegate {
                 height: 40
                 width: ListView.view.width
-                textInput.text: model.name
+                textInput.text: model.display
                 progressBar {
                     to: model.totalSize
                     value: model.doneSize

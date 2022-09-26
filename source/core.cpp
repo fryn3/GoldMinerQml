@@ -47,7 +47,8 @@ Core::Core(QObject *parent)
 
     connect(devController(), &DeviceController::finished, [this] {
         Q_ASSERT(devController()->state() == DeviceController::State::None
-                 || devController()->state() == DeviceController::State::FatalError);
+                 || devController()->state() == DeviceController::State::FatalErrorFindIp
+                 || devController()->state() == DeviceController::State::FatalErrorBadDir);
         setState(State::None);
     });
 
@@ -68,20 +69,48 @@ Core::Core(QObject *parent)
             break;
         }
         case DeviceController::State::Wait: {
-            emit showMessage(QString("Автозагрузка: файлы загружены, через %1 секунд повтор.")
+            emit showMessage(QString("Автозагрузка: файлы загружены, через %1 секунд повтор")
                              .arg(devController()->waitTimeMs() / 1000));
             break;
         }
-        case DeviceController::State::FatalError: {
+        case DeviceController::State::FatalErrorFindIp: {
             emit showMessage("Автозагрузка остановлена! Ошибка при получинии списка устройств");
             break;
+        }
+        case DeviceController::State::FatalErrorBadDir: {
+            emit showMessage("Автозагрузка остановлена! Плохой путь для загрузки");
         }
         }
     });
 
+    switch (_config.error()) {
+    case ConfigController::Error::NoError: {
+        _devController.setCountParallel(_config.countParallel);
+        _devController.setDownloadFolder(_config.autoDownloadingPath);
+        break;
+    }
+    case ConfigController::Error::BadJsonFormat: {
+        emit showMessage(QString("Ошибка формата в %1").arg(_config.CONFIG_FILE));
+        break;
+    }
+    case ConfigController::Error::BadParallelValue: {
+        emit showMessage(QString("Плохое значение %1 ключа")
+                                        .arg(_config.KEY_COUNT_PARALLEL));
+        break;
+    }
+    case ConfigController::Error::CantOpenFile: {
+        emit showMessage(QString("Не смог открыть файл конфигов %1")
+                                            .arg(_config.CONFIG_FILE));
+        break;
+    }
+    } // _config.error()
+
 }
 
-Core::~Core() noexcept { _ftpModel.abort(); }
+Core::~Core() noexcept {
+    ftpModel()->abort();
+    _config.devices.insert(devModel()->macAndName());
+}
 
 void Core::findDev() {
     setState(State::FindingDevices);
@@ -125,7 +154,8 @@ void Core::findDev() {
             if (oName != "lwip0") {
                 continue;
             }
-            devModel()->addDevice(ip, mac, oName);
+            auto name = _config.devices.value(mac);
+            devModel()->addDevice(ip, mac, oName, name);
         }
     });
     p->start(newTempFile->fileName(), {"VideoServer"});
@@ -134,7 +164,8 @@ void Core::findDev() {
 
 void Core::runAutoDownloading() {
     if (deviceControllerPath().isEmpty()) {
-        emit showMessage("Ошибка! Выберите папку для загрузки!");
+        emit showMessage(QString("Ошибка! Установите папку для скачивания в %1!")
+                                        .arg(_config.CONFIG_FILE));
         return;
     }
     emit showMessage("Начало автоскачивания", 5000);
@@ -171,7 +202,7 @@ void Core::initFtpServer() {
     auto error = (_devCommander.sendCommands({ DeviceCommander::Command::SetParameter
                                             , DeviceCommander::Command::FtpUsername
                                             , DeviceCommander::Command::FtpPassword }));
-    Q_ASSERT(error == DeviceCommander::Error::None);
+    Q_ASSERT(error == DeviceCommander::Error::NoError);
 
 }
 
@@ -203,7 +234,7 @@ void Core::writeDevConfig() {
     Q_ASSERT(!_devCommander.waitForAnswer());
     _devCommander.setData(currentDeviceCam());
 
-    Q_ASSERT(_devCommander.sendCommands() == DeviceCommander::Error::None);
+    Q_ASSERT(_devCommander.sendCommands() == DeviceCommander::Error::NoError);
 
     setState(State::WriteingConfigWaitTcp);
 }
@@ -218,16 +249,16 @@ void Core::updateCurrentDeviceCam() {
 
 void Core::stateMachine() {
 
-    qDebug() << __FILE__ << __LINE__ << state();
+    qDebug() << __FILE__ << __LINE__ << state() << _devCommander.error() << ftpModel()->error();
 
-    if (_devCommander.error() != DeviceCommander::Error::None) {
+    if (_devCommander.error() != DeviceCommander::Error::NoError) {
         qDebug() << __FILE__ << __LINE__ << _devCommander.error();
         switch(_devCommander.error()) {
         case DeviceCommander::Error::CantConnecting:
-            _devCommander.setError(DeviceCommander::Error::None);
+            _devCommander.setError(DeviceCommander::Error::NoError);
             emit showMessage("Не смог подключиться к хосту!");
             break;
-        case DeviceCommander::Error::None:
+        case DeviceCommander::Error::NoError:
         case DeviceCommander::Error::MissArgument:
         case DeviceCommander::Error::BadArgument:
         case DeviceCommander::Error::WaitForAnswer: {
@@ -247,7 +278,8 @@ void Core::stateMachine() {
     if (ftpModel()->error()) {
         qDebug() << __FILE__ << ":" << __LINE__ << ftpModel()->errorString();
         emit showMessage(ftpModel()->errorString());
-        if (ftpModel()->state() != QFtp::Unconnected) {
+        if (ftpModel()->state() != QFtp::Unconnected
+                && ftpModel()->state() != QFtp::Closing) {
             ftpModel()->close();
         }
         setState(State::None);
@@ -293,7 +325,9 @@ void Core::stateMachine() {
             break;
         }
         QThread::sleep(1);
-        if (ftpModel()->state() != QFtp::Unconnected) {
+        if (ftpModel()->state() != QFtp::Unconnected
+                && ftpModel()->state() != QFtp::Closing) {
+            qDebug() << __FILE__ << __LINE__ << ftpModel()->state();
             ftpModel()->close();
         }
         ftpModel()->connectToHost(currentDeviceCam().ip);
@@ -332,7 +366,7 @@ void Core::stateMachine() {
         _settingsFile->seek(0);
         auto settIni = _settingsFile->readAll();
         qDebug() << __FILE__ << ":" << __LINE__ << " settIni = " << settIni;
-        _devModel.parseSettingsIni(settIni, devModelCurrentIndex());
+        devModel()->parseSettingsIni(settIni, devModelCurrentIndex());
         emit showMessage("Прочитал настройки", 5000);
         setState(State::None);
         break;

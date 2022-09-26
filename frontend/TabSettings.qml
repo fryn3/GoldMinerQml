@@ -53,6 +53,35 @@ GridLayout {
         text: currentDeviceCam.ip
     }
 
+    Common.Text1 {
+        text: "Device name"
+        Layout.alignment: Qt.AlignVCenter
+    }
+    RowLayout {
+        Layout.columnSpan: 3
+        Layout.fillWidth: true
+
+        Common.LineEdit {
+            id: leDevName
+            Layout.fillWidth: true
+            text: currentDeviceCam.name
+            textInput.onAccepted: {
+                btnDevName.clicked();
+            }
+        }
+        Common.Button {
+            id: btnDevName
+            text: "Сохранить"
+            enabled: currentDeviceCam.name !== leDevName.text
+            onClicked: {
+                console.assert(deviceModel.set(devModelCurrentIndex
+                                               , leDevName.text
+                                               , DeviceModel.DmNameRole)
+                               , "ERROR: setData returned false");
+            }
+        }
+    }
+
     Common.Button {
         Layout.columnSpan: 4
         Layout.fillWidth: true
@@ -75,7 +104,7 @@ GridLayout {
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , text
                                            , DeviceModel.DmUniqueIdRole)
-                           , "ERROR: setData returned false")
+                           , "ERROR: setData returned false");
         }
     }
 
@@ -92,7 +121,7 @@ GridLayout {
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , text
                                            , DeviceModel.DmStatusStringRole)
-                           , "ERROR: setData returned false")
+                           , "ERROR: setData returned false");
         }
     }
 
@@ -112,7 +141,7 @@ GridLayout {
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , text
                                            , DeviceModel.DmVideoDurationRole)
-                           , "ERROR: setData returned false")
+                           , "ERROR: setData returned false");
         }
     }
 
@@ -130,7 +159,7 @@ GridLayout {
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , text
                                            , DeviceModel.DmChargeDetectDelayRole)
-                           , "ERROR: setData returned false")
+                           , "ERROR: setData returned false");
         }
     }
 
@@ -148,7 +177,7 @@ GridLayout {
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , text
                                            , DeviceModel.DmModeRole)
-                           , "ERROR: setData returned false")
+                           , "ERROR: setData returned false");
         }
     }
 

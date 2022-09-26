@@ -16,9 +16,14 @@ Item {
         id: t
         anchors {
             top: parent.top
-            right: parent.right
+            left: parent.right
+            leftMargin: -(fMetrics.averageCharacterWidth * 6)
         }
-        text: Math.floor(100 * progress) + suffix
+        text: (Math.floor(10000 * progress) / 100) + suffix // 2 знак после запятой
+        FontMetrics {
+            id: fMetrics
+            font.family: t.font.family
+        }
     }
 
     Rectangle {
