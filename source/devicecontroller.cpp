@@ -130,7 +130,7 @@ void DeviceController::workerStarting() {
     DevWorker *s = nullptr;
     if (sender()) {
         s = qobject_cast<DevWorker*>(sender());
-        qDebug() << __FILE__ << __LINE__ << s << s->indexRow;
+        qDebug() << __FILE__ << __LINE__ << s << s->indexRow << s->error();
         switch (s->error()) {
         case DevWorker::Error::None: {
             break;
@@ -139,6 +139,12 @@ void DeviceController::workerStarting() {
              setState(State::FatalErrorBadDir);
              break;
         }
+        case DevWorker::Error::FtpSomeError: {
+            qDebug() << __FILE__ << __LINE__ << "Произошла не фатальная ошибка. Хз что делать!";
+            break;
+        }
+        default:
+            Q_ASSERT(false);
         }
         _devWorkers.remove(s->indexRow);
         s->deleteLater();
@@ -170,7 +176,7 @@ void DeviceController::workerStarting() {
                                       DeviceModel::DmStructRole).value<DeviceCam>();
         auto deviceName = _devModel->get(_currentDev,
                                          Qt::DisplayRole).toString();
-        QString timeDir = QDateTime::currentDateTime().toString("yy_MM_dd_HH_mm_ss");
+        QString timeDir = QDateTime::currentDateTime().toString("yy_MM_dd");
 
         auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder
                                         , {deviceName, timeDir});
@@ -259,6 +265,7 @@ DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, 
     _commander.setFtpPassword(ftpPassword);
 
     connect(&_ftpModel, &FtpModel::done, this, &DevWorker::stateMachine);
+    connect(&_ftpModel, &FtpModel::freezeChanged, this, &DevWorker::stateMachine);
     connect(&_ftpModel, &FtpModel::dataTransferProgress, this, [this] (qint64 done, qint64 total) {
         Q_UNUSED(total);
         setProgressDone(progressDone() + done - __progressPrevDoneInFile);
@@ -298,6 +305,8 @@ void DevWorker::stopDownloading()
 }
 
 void DevWorker::stateMachine() {
+    qDebug() << __FILE__ << __LINE__ << error() << _commander.error()
+             << _ftpModel.error() << _ftpModel.isDone() << _ftpModel.freeze();
     if (_stoped) {
         emit finished();
         return;
@@ -327,6 +336,12 @@ void DevWorker::stateMachine() {
             Q_ASSERT(false);
             break;
         }
+        emit finished();
+        return;
+    }
+
+    if (_ftpModel.error() || _ftpModel.freeze()) {
+        setError(Error::FtpSomeError);
         emit finished();
         return;
     }
@@ -361,10 +376,10 @@ void DevWorker::stateMachine() {
             setState(State::AllFilesDownloded);
         }
         for (const auto & f: _filesToDownload) {
-            if (f.isDir()) {
+            if (f.info.isDir()) {
                 continue;
             }
-            setProgressTotal(progressTotal() + f.size());
+            setProgressTotal(progressTotal() + f.info.size());
         }
         setState(State::GetFtpFiles);
         break;
@@ -373,20 +388,31 @@ void DevWorker::stateMachine() {
         if (!_ftpModel.isDone()) {
             break;
         }
-        QUrlInfo urlInfo;
+        FtpModel::RowStruct rowStruct;
         while (!_filesToDownload.isEmpty()) {
-            auto url = _filesToDownload.takeFirst();
-            if (url.isDir()) {
-                qDebug() << __FILE__ << ":" << __LINE__ << "DevWorker::stateMachine" << "wow" << url.name() << "is dir";
+            auto rowStructFirst = _filesToDownload.takeFirst();
+            if (rowStructFirst.info.isDir()) {
+                qDebug() << __FILE__ << ":" << __LINE__ << "DevWorker::stateMachine" << "wow" << rowStructFirst.info.name() << "is dir";
                 continue;
             }
-            urlInfo = std::move(url);
+            rowStruct = std::move(rowStructFirst);
             break;
         }
-        if (!urlInfo.isValid()) {
+        if (!rowStruct.info.isValid()) {
             Q_ASSERT(_filesToDownload.isEmpty());
             qDebug() << __FILE__ << ":" << __LINE__ << "DevWorker::stateMachine" << "Закончили прохождение по файлам";
             setState(State::AllFilesDownloded);
+            break;
+        }
+
+        if (onlyRemove()) {
+            _ftpModel.remove(rowStruct.info.name());
+            break;
+        }
+
+        if (rowStruct.info.size() == 0) {
+            qDebug() << __FILE__ << __LINE__ << "Удаляем нулевой файл" << rowStruct.info.name();
+            _ftpModel.remove(rowStruct.info.name());
             break;
         }
 
@@ -408,11 +434,17 @@ void DevWorker::stateMachine() {
         if (_file.isOpen()) {
             _file.close();
         }
-        _file.setFileName(selectDir.filePath(urlInfo.name()));
+        _file.setFileName(selectDir.filePath(rowStruct.info.name()));
         __progressPrevDoneInFile = 0;
-        Q_ASSERT(_file.open(QIODevice::WriteOnly));
-        _ftpModel.get(urlInfo.name(), &_file);
-        _ftpModel.remove(urlInfo.name());
+        if (!_file.open(QIODevice::WriteOnly)) {
+            setError(Error::BadDir);
+            setState(State::None);
+            return;
+        }
+        _ftpModel.get(rowStruct.info.name(), &_file);
+        if (removeAfterDownload()) {
+            _ftpModel.remove(rowStruct.info.name());
+        }
         break;
     }
     case State::AllFilesDownloded: {
@@ -466,4 +498,20 @@ void DevWorker::setError(Error newError) {
         return;
     _error = newError;
     emit errorChanged();
+}
+
+bool DevWorker::onlyRemove() const {
+    return _onlyRemove;
+}
+
+void DevWorker::setOnlyRemove(bool newOnlyRemove) {
+    _onlyRemove = newOnlyRemove;
+}
+
+bool DevWorker::removeAfterDownload() const {
+    return _removeAfterDownload;
+}
+
+void DevWorker::setRemoveAfterDownload(bool newRemoveAfterDownload) {
+    _removeAfterDownload = newRemoveAfterDownload;
 }

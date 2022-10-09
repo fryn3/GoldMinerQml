@@ -11,7 +11,7 @@ Item {
     id: root
 
     enum ControlState {
-        // Когда нет девайсов.
+        // Бездельничаем.
         None,
         // Когда идет какой то процес, кроме автоскачивания.
         Processing,
@@ -46,6 +46,7 @@ Item {
             id: ftpDevListView
             Layout.fillWidth: true
             Layout.fillHeight: true
+            enabled: controlState === FtpDevices.ControlState.None
 
             model: core.deviceModel
             delegate: Common.ListDelegate {

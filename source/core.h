@@ -6,13 +6,14 @@
 #include "devicecommander.h"
 #include "devicecontroller.h"
 #include "devicemodel.h"
+#include "ftpcontroller.h"
 #include "ftpmodel.h"
 
 class Core : public QObject {
     Q_OBJECT
     Q_PROPERTY(DeviceModel * deviceModel READ devModel CONSTANT FINAL)
     Q_PROPERTY(int devicesFound READ devicesFound NOTIFY devicesFoundChanged FINAL)
-    Q_PROPERTY(FtpModel * ftpModel READ ftpModel CONSTANT FINAL)
+    Q_PROPERTY(FtpModel * ftpModel READ ftpModel NOTIFY ftpModelChanged FINAL)
     Q_PROPERTY(DeviceController * deviceController READ devController CONSTANT FINAL)
     Q_PROPERTY(QString deviceControllerPath READ deviceControllerPath NOTIFY deviceControllerPathChanged FINAL)
     Q_PROPERTY(int devModelCurrentIndex READ devModelCurrentIndex WRITE setDevModelCurrentIndex RESET resetDevModelCurrentIndex NOTIFY devModelCurrentIndexChanged FINAL)
@@ -51,6 +52,10 @@ public:
         // Записываю данные на камеру.
         WriteingConfigWaitTcp,
 
+        ProcessDownloading,
+        ProcessRemoving,
+        ProcessStoping,
+
         CountState
     };
     Q_ENUM(State)
@@ -85,7 +90,10 @@ public slots:
     void readDevConfig();
     void writeDevConfig();
     void updateCurrentDeviceCam();
-    void clearDevice();
+    void cleanDevice();
+    void stopCleanDevice();
+    void downloadDevice(QString pathDir, bool removeAfterDownlod);
+    void stopDownloadDevice();
 
 signals:
 
@@ -103,6 +111,11 @@ signals:
 
     void currentDeviceCamChanged();
 
+    void ftpModelChanged();
+
+private slots:
+    void ftpReconnect();
+
 private:
     // Обработка изменений состояний.
     // В теории должен отслеживать любые изменения.
@@ -114,11 +127,12 @@ private:
     int _devModelCurrentIndex = -1;
     DeviceCam _currentDeviceCam;
     DeviceCommander _devCommander;
-    FtpModel _ftpModel;
+    FtpModel *_ftpModel = nullptr;
     QByteArray _settArray;
     State _state = State::None;
     QTemporaryFile *_settingsFile = nullptr;
 
     DeviceController _devController;
     ConfigController _config;
+    FtpController _ftpController;
 };

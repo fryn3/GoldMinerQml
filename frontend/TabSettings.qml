@@ -14,10 +14,6 @@ GridLayout {
     property DeviceModel deviceModel: core.deviceModel
     property var currentDeviceCam: core.currentDeviceCam
 
-    onCurrentDeviceCamChanged: {
-        console.info("ZAQAZ currentDeviceCam =", JSON.stringify(currentDeviceCam));
-    }
-
     enabled: devModelCurrentIndex !== -1
     columns: 4
     rowSpacing: 8
@@ -137,7 +133,6 @@ GridLayout {
         }
 
         textInput.onEditingFinished: {
-            console.info("ZAQAZ textInput.onEndingFinished");
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , text
                                            , DeviceModel.DmVideoDurationRole)
@@ -229,7 +224,6 @@ GridLayout {
         text: "Log write"
         checked: currentDeviceCam.logWrite
         clickedBehavior: function() {
-            console.info("ZAQAZ logWrite", checked);
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , !checked
                                            , DeviceModel.DmLogWriteRole)

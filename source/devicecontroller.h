@@ -71,7 +71,7 @@ private slots:
 private:
     void findDev();
     void configFtpServer(int indexDev);
-    DeviceModel *_devModel;
+    DeviceModel *_devModel = nullptr;
     QString _downloadFolder;
     QHash<int, DevWorker*> _devWorkers;
     int _countParallel = 2; /// \todo Показать Жене. Количество параллельных скачиваний
@@ -114,7 +114,7 @@ public:
     enum class Error {
         None,
         BadDir,
-
+        FtpSomeError,
     };
     Q_ENUM(Error)
 
@@ -137,6 +137,12 @@ public:
     qint64 progressDone() const;
 
     Error error() const;
+
+    bool removeAfterDownload() const;
+    void setRemoveAfterDownload(bool newRemoveAfterDownload);
+
+    bool onlyRemove() const;
+    void setOnlyRemove(bool newOnlyRemove);
 
 public slots:
     void startDownloading();
@@ -173,7 +179,11 @@ private:
     // Для текущего файла предыдущее значение прогресса.
     qint64 __progressPrevDoneInFile = 0;
 
-    QList<QUrlInfo> _filesToDownload;
+    QList<FtpModel::RowStruct> _filesToDownload;
     bool _stoped = false;
     Error _error = Error::None;
+
+    bool _removeAfterDownload = true;
+    bool _onlyRemove = false;
+
 };

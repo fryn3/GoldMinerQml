@@ -74,8 +74,10 @@ void DeviceCommander::setData(DeviceCam d) {
 }
 
 DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &commands) {
+    qDebug() << __LINE__;
     setError(Error::NoError);
     if (waitForAnswer()) {
+        qDebug() << "Error::WaitForAnswer";
         return Error::WaitForAnswer;
     }
     QMap<Command, QString> map;
@@ -87,6 +89,7 @@ DeviceCommander::Error DeviceCommander::sendCommands(const QSet<Command> &comman
     } else {
         for (const auto &command: commands) {
             if (command == Command::Count) {
+                qDebug() << "Error::WaitBadArgument";
                 return Error::BadArgument;
             }
             map.insert(command, COMMAND_PATTERN[command]);

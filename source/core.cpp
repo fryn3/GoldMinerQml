@@ -15,9 +15,10 @@ Q_COREAPP_STARTUP_FUNCTION(regT)
 const bool Core::IS_QML_REG = true;//My::qmlRegisterType<Core>(Core::ITEM_NAME);
 
 Core::Core(QObject *parent)
-    : QObject{parent} {
+    : QObject{parent}, _ftpModel{nullptr} {
 
     connect(this, &Core::devModelCurrentIndexChanged, this, [this] {
+        qDebug() << ftpModel()->state();
         if (ftpModel()->state() != QFtp::Unconnected) {
             ftpModel()->close();
         }
@@ -28,8 +29,8 @@ Core::Core(QObject *parent)
     connect(this, &Core::stateChanged, &Core::stateMachine);
 
     connect(&_devCommander, &DeviceCommander::waitForAnswerChanged, this, &Core::stateMachine);
-    connect(ftpModel(), &FtpModel::errorChanged, this, &Core::stateMachine);
-    connect(ftpModel(), &FtpModel::done, this, &Core::stateMachine);
+
+    ftpReconnect();
 
     connect(devModel(), &DeviceModel::dataChanged, this, [this]
             (const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
@@ -107,6 +108,9 @@ Core::Core(QObject *parent)
     }
     } // _config.error()
 
+    connect(&_ftpController, &FtpController::finished, this, [this] {
+        setState(State::None);
+    });
 }
 
 Core::~Core() noexcept {
@@ -181,6 +185,7 @@ void Core::stopAutoDownloading() {
 }
 
 void Core::initFtpServer() {
+    qDebug() << "Core::initFtpServer" << ftpModel()->state();
     if (ftpModel()->state() == QFtp::State::Connected
             || ftpModel()->state() == QFtp::State::LoggedIn) {
         ftpModel()->close();
@@ -232,10 +237,14 @@ void Core::readDevConfig() {
 }
 
 void Core::writeDevConfig() {
-    Q_ASSERT(!_devCommander.waitForAnswer());
+    if (_devCommander.waitForAnswer()) {
+        emit showMessage("TCP не дождались ответа!");
+    }
     _devCommander.setData(currentDeviceCam());
 
-    Q_ASSERT(_devCommander.sendCommands() == DeviceCommander::Error::NoError);
+    if (_devCommander.sendCommands() != DeviceCommander::Error::NoError) {
+        emit showMessage("TCP ошибка!");
+    }
 
     setState(State::WriteingConfigWaitTcp);
 }
@@ -248,13 +257,48 @@ void Core::updateCurrentDeviceCam() {
     }
 }
 
-void Core::clearDevice() {
+void Core::cleanDevice() {
+    _ftpController.setFtpModel(ftpModel());
+    _ftpController.removeAll();
+    setState(State::ProcessRemoving);
+}
 
+void Core::stopCleanDevice() {
+    _ftpController.stop();
+    setState(State::ProcessStoping);
+}
+
+void Core::downloadDevice(QString pathDir, bool removeAfterDownlod) {
+    qDebug() << __LINE__ << pathDir;
+    _ftpController.setFtpModel(ftpModel());
+    _ftpController.setDeviceName(_devModel.get(_devModelCurrentIndex).toString());
+    _ftpController.setRemoveAfterDownload(removeAfterDownlod);
+    _ftpController.startDownloadAll(pathDir);
+    setState(State::ProcessDownloading);
+}
+
+void Core::stopDownloadDevice() {
+    _ftpController.stop();
+    setState(State::ProcessStoping);
+}
+
+void Core::ftpReconnect() {
+    if (_ftpModel) {
+        _ftpModel->deleteLater();
+    }
+    _ftpModel = new FtpModel(this);
+    emit ftpModelChanged();
+    connect(ftpModel(), &FtpModel::freezeChanged, this, &Core::ftpReconnect);
+    connect(ftpModel(), &FtpModel::errorChanged, this, &Core::stateMachine);
+    connect(ftpModel(), &FtpModel::done, this, &Core::stateMachine);
 }
 
 void Core::stateMachine() {
 
     qDebug() << __FILE__ << __LINE__ << state() << _devCommander.error() << ftpModel()->error();
+    if (ftpModel()->freeze()) {
+        qDebug() << ftpModel()->freeze() << ftpModel()->state() << ftpModel()->isDone();
+    }
 
     if (_devCommander.error() != DeviceCommander::Error::NoError) {
         qDebug() << __FILE__ << __LINE__ << _devCommander.error();
@@ -295,7 +339,10 @@ void Core::stateMachine() {
     case State::None:
     case State::FindingDevices:
     case State::ProcessAutoDownloading:
-    case State::StoppingAutoDownloading: {
+    case State::StoppingAutoDownloading:
+    case State::ProcessDownloading:
+    case State::ProcessRemoving:
+    case State::ProcessStoping: {
         break;
     }
     case State::ShowFtpFilesInitFtp: {
@@ -303,7 +350,10 @@ void Core::stateMachine() {
             break;
         }
         QThread::msleep(500);
-        Q_ASSERT(ftpModel()->state() == QFtp::Unconnected);
+        if (ftpModel()->state() != QFtp::Unconnected) {
+            QThread::msleep(500);
+        }
+//        Q_ASSERT(ftpModel()->state() == QFtp::Unconnected);
         ftpModel()->connectToHost(currentDeviceCam().ip);
         ftpModel()->login(currentDeviceCam().ftpUsername,
                         currentDeviceCam().ftpPassword);
@@ -392,7 +442,7 @@ void Core::stateMachine() {
 }
 
 FtpModel *Core::ftpModel() {
-    return &_ftpModel;
+    return _ftpModel;
 }
 
 DeviceCam Core::currentDeviceCam() const {

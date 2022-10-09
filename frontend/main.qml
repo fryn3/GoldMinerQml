@@ -57,7 +57,6 @@ Window {
             }
         }
 
-
         onBtnFindDevsClicked: core.findDev()
         onBtnDevAutoStartClicked: core.runAutoDownloading()
         onBtnDevAutoStopClicked: core.stopAutoDownloading()
@@ -73,7 +72,6 @@ Window {
             bottom: parent.bottom
             bottomMargin: 40
         }
-        enabled: core.state === Core.State.None && core.devicesFound > 0
     }
     Common.Text1Input {
         id: statusBar

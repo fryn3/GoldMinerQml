@@ -12,6 +12,7 @@ HEADERS += \
     source/devicecommander.h \
     source/devicecontroller.h \
     source/devicemodel.h \
+    source/ftpcontroller.h \
     source/myfunc.h
 
 SOURCES += \
@@ -21,6 +22,7 @@ SOURCES += \
         source/devicecontroller.cpp \
         source/devicemodel.cpp \
         main.cpp \
+        source/ftpcontroller.cpp \
         source/myfunc.cpp
 
 RESOURCES += qml.qrc \

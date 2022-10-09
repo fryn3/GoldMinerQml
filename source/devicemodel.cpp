@@ -362,7 +362,7 @@ void DeviceModel::clear() {
 
 void DeviceModel::setProgressBarZero() {
     for (int i = 0; i < rowCount(); ++i) {
-        Q_ASSERT(set(i, 0, DmDoneSizeRole));
+        set(i, 0, DmDoneSizeRole);
     }
 }
 

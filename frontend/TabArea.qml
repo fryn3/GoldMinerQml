@@ -1,9 +1,13 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+
 import "common" as Common
+import cpp.Core 43.21
 
 Item {
     id: root
+
+    readonly property bool hideRtsp: true
 
     enum TabIndex {
         TabFiles,
@@ -69,6 +73,7 @@ Item {
     Row {
         id: row
         width: parent.width
+        enabled: core.state === Core.State.None && core.devicesFound > 0
         GreenTabButton {
             index: 0
             text: "Файлы"
@@ -78,13 +83,14 @@ Item {
                     right: parent.right
                     verticalCenter: parent.verticalCenter
                 }
-                visible: enabled && root.currentIndex === TabArea.TabIndex.TabSettings
+                visible: !hideRtsp && enabled && root.currentIndex === TabArea.TabIndex.TabSettings
                 color: Common.Theme.borderNormal
                 width: 1
                 height: parent.height - 16
             }
         }
         GreenTabButton {
+            visible: !hideRtsp
             index: 1
             text: "RTSP"
             Rectangle {
@@ -134,13 +140,15 @@ Item {
             }
             TabRtsp {
                 id: tabRtsp
-                visible: root.currentTabItem == tabRtsp
+                visible: !hideRtsp && root.currentTabItem == tabRtsp
                 anchors.fill: parent
+                enabled: core.state === Core.State.None && core.devicesFound > 0
             }
             TabSettings {
                 id: tabSettings
                 visible: root.currentTabItem == tabSettings
                 anchors.fill: parent
+                enabled: core.state === Core.State.None && core.devicesFound > 0
             }
         }
     }
