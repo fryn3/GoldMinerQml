@@ -59,6 +59,8 @@ public:
     void clear();
     void setProgressBarZero();
 
+public slots:
+    void addDeviceSlot(QString ip, QString mac, QString oName);
 signals:
     void rowCountChanged();
 private:

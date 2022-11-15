@@ -1,0 +1,54 @@
+#include "finddeviceexternalapp.h"
+
+#include <QFile>
+#include <QProcess>
+#include <QTemporaryFile>
+
+FindDeviceExternalApp::FindDeviceExternalApp(bool isDebugMode, QObject *parent)
+    : FindDeviceControllerBase{parent}, DEBUG_MODE(isDebugMode) { }
+
+void FindDeviceExternalApp::start() {
+    QFile findIpExe(++_counter % 2
+                    ? ":/resources/soft/FindIP_one_more.exe"
+                    : ":/resources/soft/FindIP.exe");
+    QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
+    newTempFile->rename(newTempFile->fileName() + ".exe");
+    QProcess *p = new QProcess(this);
+    connect(p, &QProcess::errorOccurred, this, [this, newTempFile] {
+        setError(QString("Ошибка запуска %1").arg(newTempFile->fileName()));
+        sender()->deleteLater();
+        newTempFile->remove();
+        newTempFile->deleteLater();
+        emit finished();
+    });
+
+    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            p, &QProcess::deleteLater);
+    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            [newTempFile] {
+        newTempFile->remove();
+        newTempFile->deleteLater();
+    });
+    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &FindDeviceControllerBase::finished);
+    connect(p, &QProcess::readyReadStandardOutput, this, [this] {
+        auto p = dynamic_cast<QProcess*>(sender());
+        QString s = p->readAllStandardOutput();
+        auto rows = s.split("\r\n", Qt::SkipEmptyParts);
+        for (auto &row: rows) {
+            auto words = row.split(" ");
+            auto ip = words.at(1);
+            auto mac = words.at(3);
+            auto oName = words.at(5);
+            if (firstSuitableNames.contains(oName)) {
+                emit findedDevice(ip, mac, oName);
+            } else if (DEBUG_MODE && ++_counter % 2 == 1) {
+                if (debugSuitableNames.contains(oName)) {
+                    emit findedDevice(ip, mac, oName);
+                }
+            }
+        }
+    });
+    p->start(newTempFile->fileName(), {"VideoServer"});
+    emit started();
+}

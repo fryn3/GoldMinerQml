@@ -8,6 +8,8 @@
 #include <QThread>
 #include <QTimerEvent>
 
+#include "FindDevice/finddevicecontrollerbase.h"
+
 DeviceController::DeviceController(QObject *parent)
     : QObject{parent} { }
 
@@ -70,32 +72,22 @@ void DeviceController::findDev() {
     }
     setState(State::FindingDevices);
     _devModel->clear();
-    QFile findIpExe(":/resources/soft/FindIP.exe");
-    QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
-    newTempFile->rename(newTempFile->fileName() + ".exe");
-    QProcess *p = new QProcess(this);
-    connect(p, &QProcess::errorOccurred, this, [this, newTempFile] {
-        sender()->deleteLater();
-        newTempFile->remove();
-        newTempFile->deleteLater();
-        if (_stoped) {
-            return;
-        }
-        qDebug() << __FILE__ << __LINE__ << "Не получилось запустить прогу" << newTempFile->fileName();
-        setState(State::FatalErrorFindIp);
-        emit finished();
-    });
 
-    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            p, &QProcess::deleteLater);
-    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            [this, newTempFile] {
-        newTempFile->remove();
-        newTempFile->deleteLater();
+    FindDeviceControllerBase *f = FindDeviceControllerBase::createController(this);
+
+    connect(f, &FindDeviceControllerBase::started, [] {
+        qDebug() << "FindDeviceControllerBase::started";
+    });
+    connect(f, &FindDeviceControllerBase::findedDevice, _devModel, &DeviceModel::addDeviceSlot);
+    connect(f, &FindDeviceControllerBase::finished, [this, f] {
         if (_stoped) {
             return;
         }
-        if (_devModel->rowCount() > 0) {
+        if (f->isError()) {
+            qDebug() << __FILE__ << __LINE__ << QString("Ошибка поиска девайсов: %1").arg(f->errorMsg());
+            setState(State::FatalErrorFindIp);
+            emit finished();
+        } else if (_devModel->rowCount() > 0) {
             setState(State::Downloding);
             workerStarting();
         } else {
@@ -104,25 +96,8 @@ void DeviceController::findDev() {
             __timerIdWait = startTimer(_waitTimeMs);
         }
     });
-    connect(p, &QProcess::readyReadStandardOutput, this, [this] {
-        if (_stoped) {
-            return;
-        }
-        auto p = dynamic_cast<QProcess*>(sender());
-        QString s = p->readAllStandardOutput();
-        auto rows = s.split("\r\n", Qt::SkipEmptyParts);
-        for (auto &row: rows) {
-            auto words = row.split(" ");
-            auto ip = words.at(1);
-            auto mac = words.at(3);
-            auto oName = words.at(5);
-            if (oName != "lwip0") {
-                continue;
-            }
-            _devModel->addDevice(ip, mac, oName);
-        }
-    });
-    p->start(newTempFile->fileName(), {"VideoServer"});
+    connect(f, &FindDeviceControllerBase::finished, f, &QObject::deleteLater);
+    f->start();
 }
 
 void DeviceController::workerStarting() {

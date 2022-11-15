@@ -26,14 +26,32 @@ Window {
     Common.Text1Input {
         id: stateBar
         anchors {
-            right: parent.right
             top: parent.top
+            right: parent.right
             margins: 8
         }
         readOnly: true
 
         text: core.state
     }
+    Rectangle {
+        anchors {
+            top: parent.top
+            right: stateBar.left
+            margins: 8
+        }
+        color: core.someDebugFlag ? "red" : "green"
+        width: 20
+        height: 20
+        radius: 20/2
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                core.someDebugFlag = !core.someDebugFlag;
+            }
+        }
+    }
+
     FtpDevices {
         id: ftpDevices
         anchors {

@@ -7,6 +7,8 @@
 #include <QTemporaryFile>
 #include <QThread>
 
+#include "FindDevice/finddevicecontrollerbase.h"
+
 const QString Core::ITEM_NAME = "Core";
 static void regT() {
     My::qmlRegisterType<Core>(Core::ITEM_NAME);
@@ -121,26 +123,18 @@ Core::~Core() noexcept {
 void Core::findDev() {
     setState(State::FindingDevices);
     devModel()->clear();
-    QFile findIpExe(":/resources/soft/FindIP.exe");
-    QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
-    newTempFile->rename(newTempFile->fileName() + ".exe");
-    QProcess *p = new QProcess(this);
-    connect(p, &QProcess::errorOccurred, this, [this, newTempFile] {
-        emit showMessage(QString("Ошибка запуска %1")
-                                   .arg(newTempFile->fileName()), -1);
-        setState(State::None);
-        sender()->deleteLater();
-        newTempFile->remove();
-        newTempFile->deleteLater();
-    });
 
-    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            p, &QProcess::deleteLater);
-    connect(p, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            [this, newTempFile] {
-        newTempFile->remove();
-        newTempFile->deleteLater();
-        if (devModel()->rowCount() > 0) {
+    FindDeviceControllerBase *f = FindDeviceControllerBase::createController(this);
+
+    connect(f, &FindDeviceControllerBase::started, [] {
+        qDebug() << "FindDeviceControllerBase::started";
+    });
+    connect(f, &FindDeviceControllerBase::findedDevice, devModel(), &DeviceModel::addDeviceSlot);
+    connect(f, &FindDeviceControllerBase::finished, [this, f] {
+        if (f->isError()) {
+            emit showMessage(QString("Ошибка поиска девайсов: %1")
+                                       .arg(f->errorMsg()), -1);
+        } else if (devModel()->rowCount() > 0) {
             emit showMessage(QString("Поиск завершен. Найдено %1 устройства!")
                                                     .arg(devModel()->rowCount()), 5000);
         } else {
@@ -148,22 +142,8 @@ void Core::findDev() {
         }
         setState(State::None);
     });
-    connect(p, &QProcess::readyReadStandardOutput, this, [this] {
-        auto p = dynamic_cast<QProcess*>(sender());
-        QString s = p->readAllStandardOutput();
-        auto rows = s.split("\r\n", Qt::SkipEmptyParts);
-        for (auto &row: rows) {
-            auto words = row.split(" ");
-            auto ip = words.at(1);
-            auto mac = words.at(3);
-            auto oName = words.at(5);
-            if (oName != "lwip0") {
-                continue;
-            }
-            devModel()->addDevice(ip, mac, oName);
-        }
-    });
-    p->start(newTempFile->fileName(), {"VideoServer"});
+    connect(f, &FindDeviceControllerBase::finished, f, &QObject::deleteLater);
+    f->start();
     emit showMessage("Поиск устройств...");
 }
 
@@ -210,6 +190,17 @@ void Core::initFtpServer() {
                                             , DeviceCommander::Command::FtpPassword }));
     Q_ASSERT(error == DeviceCommander::Error::NoError);
 
+}
+
+bool Core::someDebugFlag() const {
+    return _someDebugFlag;
+}
+
+void Core::setSomeDebugFlag(bool newSomeDebugFlag) {
+    if (_someDebugFlag == newSomeDebugFlag)
+        return;
+    _someDebugFlag = newSomeDebugFlag;
+    emit someDebugFlagChanged();
 }
 
 DeviceController *Core::devController() {

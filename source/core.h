@@ -19,6 +19,7 @@ class Core : public QObject {
     Q_PROPERTY(int devModelCurrentIndex READ devModelCurrentIndex WRITE setDevModelCurrentIndex RESET resetDevModelCurrentIndex NOTIFY devModelCurrentIndexChanged FINAL)
     Q_PROPERTY(State state READ state NOTIFY stateChanged FINAL)
     Q_PROPERTY(DeviceCam currentDeviceCam READ currentDeviceCam WRITE setCurrentDeviceCam RESET resetCurrentDeviceCam NOTIFY currentDeviceCamChanged FINAL)
+    Q_PROPERTY(bool someDebugFlag READ someDebugFlag WRITE setSomeDebugFlag NOTIFY someDebugFlagChanged)
 public:
     static const QString ITEM_NAME;     ///< Core
     static const bool IS_QML_REG;
@@ -82,6 +83,9 @@ public:
     DeviceController *devController();
     QString deviceControllerPath() const;
 
+    bool someDebugFlag() const;
+    void setSomeDebugFlag(bool newSomeDebugFlag);
+
 public slots:
     void findDev();
     void runAutoDownloading();
@@ -113,6 +117,8 @@ signals:
 
     void ftpModelChanged();
 
+    void someDebugFlagChanged();
+
 private slots:
     void ftpReconnect();
 
@@ -135,4 +141,9 @@ private:
     DeviceController _devController;
     ConfigController _config;
     FtpController _ftpController;
+
+
+
+    // for debug
+    bool _someDebugFlag = false;
 };

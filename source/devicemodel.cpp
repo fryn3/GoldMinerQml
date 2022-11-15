@@ -290,6 +290,10 @@ void DeviceModel::addDevice(QString ip, QString mac, QString oName, QString name
     endInsertRows();
 }
 
+void DeviceModel::addDeviceSlot(QString ip, QString mac, QString oName) {
+    addDevice(ip, mac, oName, {});
+}
+
 bool DeviceModel::setName(QString mac, QString name) {
     for (int i = 0; i < _devices.size(); ++i) {
         if (_devices.at(i).mac == mac) {
