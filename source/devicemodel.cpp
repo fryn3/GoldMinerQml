@@ -3,6 +3,7 @@
 #include "qcoreapplication.h"
 
 #include <QJsonArray>
+#include <set>
 
 static const QString DEVICE_JSON_KEY = "Camera";
 static const int FIELDS_COUNT = 11; // если добавятся поля, это число нужно обновить!
@@ -276,6 +277,12 @@ bool DeviceModel::set(int row, const QVariant &value, int role) {
 }
 
 void DeviceModel::addDevice(QString ip, QString mac, QString oName, QString name) {
+    auto itFind = std::find_if(_devices.begin(), _devices.end(), [&ip] (DeviceCam d) {
+        return d.ip == ip;
+    });
+    if (itFind != _devices.end()) {
+        return;
+    }
     beginInsertRows(QModelIndex(), rowCount(), rowCount());
     DeviceCam d;
     d.mac = mac;
@@ -362,6 +369,68 @@ void DeviceModel::clear() {
     beginResetModel();
     _devices.clear();
     endResetModel();
+}
+
+void DeviceModel::clearExceptFor(QList<QString> ips) {
+    if (ips.isEmpty()) {
+        clear();
+        return;
+    }
+    std::set<int> exceptRows;
+    for (int i = 0; i < _devices.size(); ++i) {
+        auto fIt = std::find_if(_devices.begin(), _devices.end(), [&ips] (DeviceCam& d) {
+                        return ips.contains(d.ip);
+                    });
+        if (fIt != _devices.end()) {
+            exceptRows.insert(std::distance(_devices.begin(), fIt));
+        }
+    }
+    if (exceptRows.empty()) {
+        clear();
+        return;
+    }
+    // 0 1 2 3 4 -- size == 5
+    // 1, 3
+    if (*exceptRows.rbegin() != _devices.size() - 1) {
+        beginRemoveRows(QModelIndex()
+                        , *exceptRows.rbegin() + 1
+                        , _devices.size() - 1);
+        _devices.remove(*exceptRows.rbegin() + 1
+                        , _devices.size() - *exceptRows.rbegin() - 1);
+        endRemoveRows();
+    }
+    for (auto it2 = exceptRows.rbegin(), it1 = std::next(it2);
+         it2 != exceptRows.rend() && it1 != exceptRows.rend();
+         ++it2, ++it1) {
+        if (*it2 - *it1 == 1) { continue; }
+        beginRemoveRows(QModelIndex()
+                        , *it1 + 1
+                        , *it2 - 1);
+        _devices.remove(*it1 + 1
+                        , *it2 - *it1 - 1);
+        endRemoveRows();
+    }
+    if (*exceptRows.begin() != 0) {
+        beginRemoveRows(QModelIndex()
+                        , 0
+                        , *exceptRows.begin() - 1);
+        _devices.remove(0
+                        , *exceptRows.begin());
+        endRemoveRows();
+    }
+}
+
+void DeviceModel::removeRow(QString ip) {
+    auto fIt = std::find_if(_devices.begin(), _devices.end(), [&ip] (DeviceCam& d) {
+                    return d.ip == ip;
+                });
+    if (fIt == _devices.end()) {
+        return;
+    }
+    int indRow = std::distance(_devices.begin(), fIt);
+    beginRemoveRows(QModelIndex(), indRow, indRow);
+    _devices.remove(indRow);
+    endRemoveRows();
 }
 
 void DeviceModel::setProgressBarZero() {

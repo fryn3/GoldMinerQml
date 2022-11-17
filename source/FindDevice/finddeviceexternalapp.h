@@ -8,13 +8,11 @@ public:
     explicit FindDeviceExternalApp(bool isDebugMode, QObject *parent = nullptr);
 
     QStringList firstSuitableNames { "lwip0" };
-    QStringList debugSuitableNames { "androidName" }; /// \todo FIXME
 
-    // В релизной версии нужно перевести в false!
-    const bool DEBUG_MODE = true;
+    const bool DEBUG_MODE = false;
 
     void start() override;
 private:
-    int _counter = 0;
+    static int counterFindDev;
 };
 

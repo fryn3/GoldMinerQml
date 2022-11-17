@@ -73,7 +73,7 @@ private:
     void configFtpServer(int indexDev);
     DeviceModel *_devModel = nullptr;
     QString _downloadFolder;
-    QHash<int, DevWorker*> _devWorkers;
+    QHash<QString, DevWorker*> _devWorkers; // key is IP
     int _countParallel = 2; /// \todo Показать Жене. Количество параллельных скачиваний
     int _currentDev = 0;
     bool _stoped = false;

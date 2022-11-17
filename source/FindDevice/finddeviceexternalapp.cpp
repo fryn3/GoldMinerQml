@@ -1,16 +1,19 @@
 #include "finddeviceexternalapp.h"
 
+#include <QDebug>
 #include <QFile>
 #include <QProcess>
 #include <QTemporaryFile>
 
+int FindDeviceExternalApp::counterFindDev = 0;
+
 FindDeviceExternalApp::FindDeviceExternalApp(bool isDebugMode, QObject *parent)
-    : FindDeviceControllerBase{parent}, DEBUG_MODE(isDebugMode) { }
+        : FindDeviceControllerBase{parent}, DEBUG_MODE(isDebugMode) {
+    ++counterFindDev;
+}
 
 void FindDeviceExternalApp::start() {
-    QFile findIpExe(++_counter % 2
-                    ? ":/resources/soft/FindIP_one_more.exe"
-                    : ":/resources/soft/FindIP.exe");
+    QFile findIpExe(":/resources/soft/FindIP.exe");
     QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
     newTempFile->rename(newTempFile->fileName() + ".exe");
     QProcess *p = new QProcess(this);
@@ -37,14 +40,14 @@ void FindDeviceExternalApp::start() {
         auto rows = s.split("\r\n", Qt::SkipEmptyParts);
         for (auto &row: rows) {
             auto words = row.split(" ");
+            qDebug() << words;
             auto ip = words.at(1);
             auto mac = words.at(3);
             auto oName = words.at(5);
             if (firstSuitableNames.contains(oName)) {
                 emit findedDevice(ip, mac, oName);
-            } else if (DEBUG_MODE && ++_counter % 2 == 1) {
-                if (debugSuitableNames.contains(oName)) {
-                    emit findedDevice(ip, mac, oName);
+                if (DEBUG_MODE && counterFindDev % 2 == 1) {
+                    break;
                 }
             }
         }

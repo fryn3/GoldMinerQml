@@ -73,7 +73,7 @@ Core::Core(QObject *parent)
             break;
         }
         case DeviceController::State::Wait: {
-            emit showMessage(QString("Автозагрузка: файлы загружены, через %1 секунд повтор")
+            emit showMessage(QString("Автозагрузка: через %1 секунд начнется поиск устройств")
                              .arg(devController()->waitTimeMs() / 1000));
             break;
         }
@@ -89,8 +89,8 @@ Core::Core(QObject *parent)
 
     switch (_config.error()) {
     case ConfigController::Error::NoError: {
-        _devController.setCountParallel(_config.countParallel);
-        _devController.setDownloadFolder(_config.autoDownloadingPath);
+        devController()->setCountParallel(_config.countParallel);
+        devController()->setDownloadFolder(_config.autoDownloadingPath);
         devModel()->setMacAndName(_config.devices);
         break;
     }

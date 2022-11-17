@@ -47,12 +47,12 @@ void DeviceController::stopDownloading() {
         break;
     }
     case State::Downloding: {
-        auto keys = _devWorkers.keys();
-        for (const auto & wKey: keys) {
-            _devWorkers[wKey]->stopDownloading();
-        }
         break;
     }
+    }
+    const auto keyWorkers = _devWorkers.keys();
+    for (auto key: keyWorkers) {
+        _devWorkers[key]->stopDownloading();
     }
 
 }
@@ -71,7 +71,7 @@ void DeviceController::findDev() {
         return;
     }
     setState(State::FindingDevices);
-    _devModel->clear();
+    _devModel->clearExceptFor(_devWorkers.keys());
 
     FindDeviceControllerBase *f = FindDeviceControllerBase::createController(this);
 
@@ -121,7 +121,7 @@ void DeviceController::workerStarting() {
         default:
             Q_ASSERT(false);
         }
-        _devWorkers.remove(s->indexRow);
+        _devWorkers.remove(s->ip);
         s->deleteLater();
     }
     if (_stoped || (s && s->error() == DevWorker::Error::BadDir)) {
@@ -137,7 +137,7 @@ void DeviceController::workerStarting() {
     }
     while (_devWorkers.size() < _countParallel) {
         if (_currentDev >= _devModel->rowCount()) {
-            if (_devWorkers.isEmpty() && state() != State::Wait) {
+            if (state() != State::Wait) {
                 qDebug() << __FILE__ << ":" << __LINE__ << "Wow! I'm waiting!";
                 setState(State::Wait);
                 __timerIdWait = startTimer(_waitTimeMs);
@@ -145,8 +145,15 @@ void DeviceController::workerStarting() {
             qDebug() << __FILE__ << ":" << __LINE__ << "Mmm. I'm here";
             return;
         }
-        configFtpServer(_currentDev);
 
+        auto dIp = _devModel->get(_currentDev,
+                                  DeviceModel::DmIpRole).toString();
+
+        if (_devWorkers.contains(dIp)) {
+            ++_currentDev;
+            continue;
+        }
+        configFtpServer(_currentDev);
         auto dStruct = _devModel->get(_currentDev,
                                       DeviceModel::DmStructRole).value<DeviceCam>();
         auto deviceName = _devModel->get(_currentDev,
@@ -155,6 +162,8 @@ void DeviceController::workerStarting() {
 
         auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder
                                         , {deviceName, timeDir});
+        /// \todo delete me! Для отладки отключаю удаление после скачивания!
+        devWorker->setRemoveAfterDownload(false);
 
         connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
         connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
@@ -164,19 +173,17 @@ void DeviceController::workerStarting() {
             _devModel->set(devWorker->indexRow, devWorker->progressDone(), DeviceModel::DmDoneSizeRole);
         });
         devWorker->startDownloading();
-        _devWorkers.insert(_currentDev, devWorker);
+        _devWorkers.insert(dStruct.ip, devWorker);
         ++_currentDev;
     }
 }
 
 void DeviceController::configFtpServer(int indexDev) {
-    Q_ASSERT(!_devWorkers.contains(indexDev));
     QString username = My::genRandom(8);
     QString password = My::genRandom(8);
 
     _devModel->set(indexDev, username, DeviceModel::DmFtpUsernameRole);
     _devModel->set(indexDev, password, DeviceModel::DmFtpPasswordRole);
-
 }
 
 int DeviceController::countParallel() const {
@@ -228,7 +235,8 @@ void DeviceController::setDownloadFolder(const QString &newDownloadFolder) {
     emit downloadFolderChanged();
 }
 
-DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent)
+DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass
+                     , QString folderPath, QStringList subDirsList, QObject *parent)
     : QObject(parent), indexRow(index), ip(ipStr), ftpUsername(ftpLog), ftpPassword(ftpPass),
       downloadFolder(folderPath), subDirs(subDirsList) {
 
@@ -260,9 +268,9 @@ DevWorker::State DevWorker::state() const {
 void DevWorker::startDownloading() {
     emit started();
     _stoped = false;
-    auto error = (_commander.sendCommands({ DeviceCommander::Command::SetParameter
+    auto error = _commander.sendCommands({ DeviceCommander::Command::SetParameter
                                             , DeviceCommander::Command::FtpUsername
-                                            , DeviceCommander::Command::FtpPassword }));
+                                            , DeviceCommander::Command::FtpPassword });
     Q_ASSERT(error == DeviceCommander::Error::NoError);
     setState(State::InitFtp);
 }
