@@ -94,7 +94,7 @@ GridLayout {
     Common.LineEdit {
         Layout.columnSpan: 3
         Layout.fillWidth: true
-        text: currentDeviceCam.uniqueId
+        text: "currentDeviceCam.uniqueId"
 
         textInput.onEditingFinished: {
             console.assert(deviceModel.set(devModelCurrentIndex
@@ -111,7 +111,7 @@ GridLayout {
     Common.LineEdit {
         Layout.columnSpan: 3
         Layout.fillWidth: true
-        text: currentDeviceCam.statusString
+        text: "currentDeviceCam.statusString"
 
         textInput.onEditingFinished: {
             console.assert(deviceModel.set(devModelCurrentIndex
@@ -183,7 +183,7 @@ GridLayout {
     Column {
         id: rotationColumn
 
-        readonly property bool videoRotation: currentDeviceCam.videoRotation
+        readonly property bool videoRotation: false//currentDeviceCam.videoRotation
 
         Layout.fillWidth: true
         spacing: 8
@@ -222,7 +222,7 @@ GridLayout {
     Common.CheckBox {
         Layout.columnSpan: 4
         text: "Log write"
-        checked: currentDeviceCam.logWrite
+        checked: false //currentDeviceCam.logWrite
         clickedBehavior: function() {
             console.assert(deviceModel.set(devModelCurrentIndex
                                            , !checked

@@ -20,15 +20,8 @@ public:
         DmMacRole,
         DmIpRole,
         DmOnameRole, // Имя на роутере
-        DmUniqueIdRole,
-        DmStatusStringRole,
-        DmModeRole,
-        DmVideoDurationRole,
-        DmChargeDetectDelayRole,
-        DmLogWriteRole,
         DmFtpUsernameRole,
         DmFtpPasswordRole,
-        DmVideoRotationRole,
         DmIsSkipRole,
 
         DmStructRole,   // Возвращает структуру DeviceCam
@@ -78,15 +71,8 @@ struct DeviceCam {
     Q_PROPERTY(QString mac MEMBER mac)
     Q_PROPERTY(QString ip MEMBER ip)
     Q_PROPERTY(QString oName MEMBER oName)
-    Q_PROPERTY(QString uniqueId MEMBER uniqueId)
-    Q_PROPERTY(QString statusString MEMBER statusString)
-    Q_PROPERTY(int mode MEMBER mode)
-    Q_PROPERTY(int videoDuration MEMBER videoDuration)
-    Q_PROPERTY(double chargeDetectDelay MEMBER chargeDetectDelay)
-    Q_PROPERTY(bool logWrite MEMBER logWrite)
     Q_PROPERTY(QString ftpUsername MEMBER ftpUsername)
     Q_PROPERTY(QString ftpPassword MEMBER ftpPassword)
-    Q_PROPERTY(bool videoRotation MEMBER videoRotation)
     Q_PROPERTY(bool isSkip MEMBER isSkip)
     Q_PROPERTY(qint64 totalSize MEMBER totalSize)
     Q_PROPERTY(qint64 doneSize MEMBER doneSize)
@@ -100,15 +86,8 @@ public:
     QString mac;
     QString ip;
     QString oName;
-    QString uniqueId;
-    QString statusString;
-    int mode = 1;
-    int videoDuration = 60;
-    double chargeDetectDelay = 0.5;
-    bool logWrite = true;
     QString ftpUsername;
     QString ftpPassword;
-    bool videoRotation = false;
     bool isSkip = false;
     qint64 totalSize = 1;
     qint64 doneSize = 0;

@@ -3,7 +3,6 @@
 #include <QFile>
 #include <QObject>
 #include "configcontroller.h"
-#include "devicecommander.h"
 #include "devicecontroller.h"
 #include "devicemodel.h"
 #include "ftpcontroller.h"
@@ -39,19 +38,6 @@ public:
         ShowFtpFilesInitFtp,
         // Получение списка файлов.
         ShowFtpFilesGetList,
-
-        // Конфиг ФТП сервера. Ожидание ответа tcp.
-        ReadingConfigInitFtp,
-
-        // Получаю список корневых файлов.
-        // Дальше буду скачивать и парсить файл settings.ini.
-        ReadingConfigWaitFtp,
-
-        // Скачиваю settings.ini и паршу.
-        ReadingConfigDownloading,
-
-        // Записываю данные на камеру.
-        WriteingConfigWaitTcp,
 
         ProcessDownloading,
         ProcessRemoving,
@@ -91,8 +77,6 @@ public slots:
     void runAutoDownloading();
     void stopAutoDownloading();
     void showFtpFiles();
-    void readDevConfig();
-    void writeDevConfig();
     void updateCurrentDeviceCam();
     void cleanDevice();
     void stopCleanDevice();
@@ -132,7 +116,6 @@ private:
     DeviceModel _devModel;
     int _devModelCurrentIndex = -1;
     DeviceCam _currentDeviceCam;
-    DeviceCommander _devCommander;
     FtpModel *_ftpModel = nullptr;
     QByteArray _settArray;
     State _state = State::None;

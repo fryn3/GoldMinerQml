@@ -12,7 +12,6 @@ HEADERS += \
     source/FindDevice/finddevicesimulation.h \
     source/configcontroller.h \
     source/core.h \
-    source/devicecommander.h \
     source/devicecontroller.h \
     source/devicemodel.h \
     source/ftpcontroller.h \
@@ -24,7 +23,6 @@ SOURCES += \
         source/FindDevice/finddevicesimulation.cpp \
         source/configcontroller.cpp \
         source/core.cpp \
-        source/devicecommander.cpp \
         source/devicecontroller.cpp \
         source/devicemodel.cpp \
         main.cpp \

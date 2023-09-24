@@ -5,7 +5,6 @@
 #include <QFile>
 #include <QObject>
 
-#include "devicecommander.h"
 #include "devicemodel.h"
 #include "ftpmodel.h"
 
@@ -167,7 +166,6 @@ private:
     void setError(Error newError);
 
     State _state = State::None;
-    DeviceCommander _commander;
     FtpModel _ftpModel;
     QFile _file;
 

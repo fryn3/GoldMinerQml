@@ -13,15 +13,8 @@ bool operator==(const DeviceCam &l, const DeviceCam &r) {
             && l.mac == r.mac
             && l.ip == r.ip
             && l.oName == r.oName
-            && l.uniqueId == r.uniqueId
-            && l.statusString == r.statusString
-            && l.mode == r.mode
-            && l.videoDuration == r.videoDuration
-            && l.chargeDetectDelay == r.chargeDetectDelay
-            && l.logWrite == r.logWrite
             && l.ftpUsername == r.ftpUsername
             && l.ftpPassword == r.ftpPassword
-            && l.videoRotation == r.videoRotation
             && l.isSkip == r.isSkip;
 }
 
@@ -43,15 +36,8 @@ const std::array<QString, DeviceModel::DM_ROLE_COUNT>
     "mac",
     "ip",
     "oName",
-    "uniqueId",
-    "statusString",
-    "mode",
-    "videoDuration",
-    "chargeDetectDelay",
-    "logWrite",
     "ftpUsername",
     "ftpPassword",
-    "videoRotation",
     "isSkip",
     "struct",
     "totalSize",
@@ -80,13 +66,6 @@ DeviceCam DeviceCam::fromJson(QJsonObject jObject, QString mac, bool *ok)
         d.mac = mac;
     }
     d.oName = jA[2 - !mac.isEmpty()].toString();
-    d.uniqueId = jA[3 - !mac.isEmpty()].toString();
-    d.statusString = jA[4 - !mac.isEmpty()].toString();
-    d.mode = jA[5 - !mac.isEmpty()].toInt();
-    d.videoDuration = jA[6 - !mac.isEmpty()].toInt();
-    d.chargeDetectDelay = jA[7 - !mac.isEmpty()].toDouble();
-    d.logWrite = jA[8 - !mac.isEmpty()].toBool();
-    d.videoRotation = jA[9 - !mac.isEmpty()].toBool();
     d.isSkip = jA[10 - !mac.isEmpty()].toBool();
     *ok = true;
     return d;
@@ -100,13 +79,6 @@ QJsonObject DeviceCam::toJson(bool withoutMac) const
         jA << withoutMac;
     }
     jA << oName;
-    jA << uniqueId;
-    jA << statusString;
-    jA << mode;
-    jA << videoDuration;
-    jA << chargeDetectDelay;
-    jA << logWrite;
-    jA << videoRotation;
     jA << isSkip;
     QJsonObject jObject;
     jObject[DEVICE_JSON_KEY] = jA;
@@ -134,8 +106,6 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
     case Qt::DisplayRole:
         if (!_devices.at(index.row()).name.isEmpty()) {
             return _devices.at(index.row()).name;
-        } else if (!_devices.at(index.row()).uniqueId.isEmpty()) {
-            return "ID: " + _devices.at(index.row()).uniqueId;
         } else {
             return _devices.at(index.row()).mac;
         }
@@ -147,24 +117,10 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const {
         return _devices.at(index.row()).ip;
     case DmOnameRole:
         return _devices.at(index.row()).oName;
-    case DmUniqueIdRole:
-        return _devices.at(index.row()).uniqueId;
-    case DmStatusStringRole:
-        return _devices.at(index.row()).statusString;
-    case DmModeRole:
-        return _devices.at(index.row()).mode;
-    case DmVideoDurationRole:
-        return _devices.at(index.row()).videoDuration;
-    case DmChargeDetectDelayRole:
-        return _devices.at(index.row()).chargeDetectDelay;
-    case DmLogWriteRole:
-        return _devices.at(index.row()).logWrite;
     case DmFtpUsernameRole:
         return _devices.at(index.row()).ftpUsername;
     case DmFtpPasswordRole:
         return _devices.at(index.row()).ftpPassword;
-    case DmVideoRotationRole:
-        return _devices.at(index.row()).videoRotation;
     case DmIsSkipRole:
         return _devices.at(index.row()).isSkip;
     case DmStructRole:
@@ -205,32 +161,11 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
     case DmOnameRole:
         _devices[index.row()].oName = value.toString();
         break;
-    case DmUniqueIdRole:
-        _devices[index.row()].uniqueId = value.toString();
-        break;
-    case DmStatusStringRole:
-        _devices[index.row()].statusString = value.toString();
-        break;
-    case DmModeRole:
-        _devices[index.row()].mode = value.toInt();
-        break;
-    case DmVideoDurationRole:
-        _devices[index.row()].videoDuration = value.toInt();
-        break;
-    case DmChargeDetectDelayRole:
-        _devices[index.row()].chargeDetectDelay = value.toDouble();
-        break;
-    case DmLogWriteRole:
-        _devices[index.row()].logWrite = value.toBool();
-        break;
     case DmFtpUsernameRole:
         _devices[index.row()].ftpUsername = value.toString();
         break;
     case DmFtpPasswordRole:
         _devices[index.row()].ftpPassword = value.toString();
-        break;
-    case DmVideoRotationRole:
-        _devices[index.row()].videoRotation = value.toBool();
         break;
     case DmIsSkipRole:
         _devices[index.row()].isSkip = value.toBool();
@@ -247,8 +182,7 @@ bool DeviceModel::setData(const QModelIndex &index, const QVariant &value, int r
     }
     if (role == Qt::DisplayRole
             || role == DmNameRole
-            || role == DmMacRole
-            || role == DmUniqueIdRole) {
+            || role == DmMacRole) {
         emit dataChanged(index, index, { Qt::DisplayRole, DmNameRole, role, DmStructRole });
     } else if (role == DmStructRole) {
         emit dataChanged(index, index);
@@ -311,46 +245,9 @@ bool DeviceModel::setName(QString mac, QString name) {
 }
 
 void DeviceModel::parseSettingsIni(const QString &settingsIni, int row) {
-    qDebug() << __FILE__ << ":" << __LINE__ << settingsIni;
-//    const auto WLAN_SSID = QLatin1String("WLAN_SSID");  // не нужно!
-//    const auto WLAN_PWD = QLatin1String("WLAN_PWD");    // не нужно!
-//    const auto RTSP_USER = QLatin1String("RTSP_USER");  // не нужно!
-//    const auto RTSP_PWD = QLatin1String("RTSP_PWD");    // не нужно!
-    const auto UNIQUE_ID = QLatin1String("UNIQUE_ID");
-    const auto STATUS_STRING = QLatin1String("STATUS_STRING");
-    const auto CHARGE_DETECT_DELAY = QLatin1String("CHARGE_DETECT_DELAY");
-    const auto VIDEO_DURATION = QLatin1String("VIDEO_DURATION");
-    const auto VIDEO_RECORD_MODE = QLatin1String("VIDEO_RECORD_MODE");
-//    const auto BUTTON_PRESS_DURATION = QLatin1String("BUTTON_PRESS_DURATION"); // не нужно!
-//    const auto SETTINGS_UPD = QLatin1String("SETTINGS_UPD"); // не нужно!
-    const auto LOG_WRITE = QLatin1String("LOG_WRITE");
-    const auto VIDEO_ROTATION = QLatin1String("VIDEO_ROTATION");
-
-    const QMap<QLatin1String, int> roles {
-        {UNIQUE_ID, DmUniqueIdRole},
-        {STATUS_STRING, DmStatusStringRole},
-        {CHARGE_DETECT_DELAY, DmChargeDetectDelayRole},
-        {VIDEO_DURATION, DmVideoDurationRole},
-        {VIDEO_RECORD_MODE, DmModeRole},
-        {LOG_WRITE, DmLogWriteRole},
-        {VIDEO_ROTATION, DmVideoRotationRole},
-    };
+    qDebug() << __FILE__ << ":" << __LINE__ << settingsIni << "Этот метод уже пустой!";
 
     auto settingsRows = settingsIni.split("\n", Qt::SkipEmptyParts);
-
-    for (const auto& rowStr: settingsRows) {
-        if (rowStr.startsWith("#")) {
-            continue;
-        }
-        auto value = rowStr.section("\"", 1, 1);
-
-        for (auto it = roles.constBegin(); it != roles.constEnd(); ++it) {
-            if (rowStr.startsWith(it.key())) {
-                set(row, value, it.value());
-                break;
-            }
-        }
-    }
 }
 
 const QVector<DeviceCam> & DeviceModel::devices() const {

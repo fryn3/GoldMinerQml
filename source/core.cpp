@@ -30,8 +30,6 @@ Core::Core(QObject *parent)
     connect(this, &Core::devModelCurrentIndexChanged, &Core::stateMachine);
     connect(this, &Core::stateChanged, &Core::stateMachine);
 
-    connect(&_devCommander, &DeviceCommander::waitForAnswerChanged, this, &Core::stateMachine);
-
     ftpReconnect();
 
     connect(devModel(), &DeviceModel::dataChanged, this, [this]
@@ -148,6 +146,7 @@ void Core::findDev() {
 }
 
 void Core::runAutoDownloading() {
+    qDebug() << "__PRETTY_FUNCTION__";
     if (deviceControllerPath().isEmpty()) {
         emit showMessage(QString("Ошибка! Установите папку для скачивания в %1!")
                                         .arg(_config.CONFIG_FILE));
@@ -182,14 +181,7 @@ void Core::initFtpServer() {
         devModel()->set(devModelCurrentIndex(), password, DeviceModel::DmFtpPasswordRole);
     }
     qDebug() << "FTP AUTH: " << username << "\t" << password;
-
-    _devCommander.setData(currentDeviceCam());
-
-//    auto error = (_devCommander.sendCommands({ DeviceCommander::Command::SetParameter
-//                                            , DeviceCommander::Command::FtpUsername
-//                                            , DeviceCommander::Command::FtpPassword }));
-//    Q_ASSERT(error == DeviceCommander::Error::NoError);
-
+    stateMachine();
 }
 
 bool Core::someDebugFlag() const {
@@ -213,31 +205,9 @@ QString Core::deviceControllerPath() const {
 
 void Core::showFtpFiles() {
     Q_ASSERT(ftpModel()->isDone());
-    Q_ASSERT(!_devCommander.waitForAnswer());
     emit showMessage("Получения списка файлов");
     initFtpServer();
     setState(State::ShowFtpFilesInitFtp);
-}
-
-void Core::readDevConfig() {
-    Q_ASSERT(ftpModel()->isDone());
-    Q_ASSERT(!_devCommander.waitForAnswer());
-    emit showMessage("Чтение настроек");
-    initFtpServer();
-    setState(State::ReadingConfigInitFtp);
-}
-
-void Core::writeDevConfig() {
-    if (_devCommander.waitForAnswer()) {
-        emit showMessage("TCP не дождались ответа!");
-    }
-    _devCommander.setData(currentDeviceCam());
-
-    if (_devCommander.sendCommands() != DeviceCommander::Error::NoError) {
-        emit showMessage("TCP ошибка!");
-    }
-
-    setState(State::WriteingConfigWaitTcp);// возможно надо пропустить этот шаг
 }
 
 void Core::updateCurrentDeviceCam() {
@@ -285,33 +255,9 @@ void Core::ftpReconnect() {
 }
 
 void Core::stateMachine() {
-    qDebug() << __FILE__ << __LINE__ << state() << _devCommander.error() << ftpModel()->error();
+    qDebug() << __FILE__ << __LINE__ << state() << ftpModel()->error();
     if (ftpModel()->freeze()) {
         qDebug() << ftpModel()->freeze() << ftpModel()->state() << ftpModel()->isDone();
-    }
-
-    if (_devCommander.error() != DeviceCommander::Error::NoError) {
-        qDebug() << __FILE__ << __LINE__ << _devCommander.error();
-        switch(_devCommander.error()) {
-        case DeviceCommander::Error::CantConnecting:
-            _devCommander.setError(DeviceCommander::Error::NoError);
-            emit showMessage("Не смог подключиться к хосту!");
-            break;
-        case DeviceCommander::Error::NoError:
-        case DeviceCommander::Error::MissArgument:
-        case DeviceCommander::Error::BadArgument:
-        case DeviceCommander::Error::WaitForAnswer: {
-            qDebug() << _devCommander.error();
-            Q_ASSERT(false);
-            // это не сохраняем в поле ошибки а возвращаем через sendCommands().
-            break;
-        }
-        case DeviceCommander::Error::Count:
-            Q_ASSERT(false);
-            break;
-        }
-        setState(State::None);
-        return;
     }
 
     if (ftpModel()->error()) {
@@ -336,9 +282,8 @@ void Core::stateMachine() {
         break;
     }
     case State::ShowFtpFilesInitFtp: {
-//        if (_devCommander.waitForAnswer()) {
-//            break;
-//        }
+
+
         QThread::msleep(500); // возможно можно удалить!
         if (ftpModel()->state() != QFtp::Unconnected) {
             QThread::msleep(500);
@@ -365,65 +310,6 @@ void Core::stateMachine() {
         setState(State::None);
         break;
     }
-//    case State::ReadingConfigInitFtp: {
-//        if (_devCommander.waitForAnswer()) {
-//            break;
-//        }
-//        QThread::sleep(1);
-//        if (ftpModel()->state() != QFtp::Unconnected
-//                && ftpModel()->state() != QFtp::Closing) {
-//            qDebug() << __FILE__ << __LINE__ << ftpModel()->state();
-//            ftpModel()->close();
-//        }
-//        ftpModel()->connectToHost(currentDeviceCam().ip);
-//        ftpModel()->login(currentDeviceCam().ftpUsername,
-//                        currentDeviceCam().ftpPassword);
-//        ftpModel()->setTransferMode(QFtp::Active);
-//        ftpModel()->cd("mnt");
-//        ftpModel()->list();
-//        setState(State::ReadingConfigWaitFtp);
-//        break;
-//    }
-//    case State::ReadingConfigWaitFtp: {
-//        if (!ftpModel()->isDone()) {
-//            break;
-//        }
-//        const QString settFile{"settings.ini"};
-//        auto indexF = ftpModel()->findName(settFile);
-//        if (indexF == -1) {
-//            emit showMessage("Не найден файл настроек");
-//            return;
-//        }
-//        if (_settingsFile) {
-//            _settingsFile->deleteLater();
-//        }
-//        _settingsFile = new QTemporaryFile(this);
-//        _settingsFile->open();
-//        ftpModel()->get(settFile, _settingsFile);
-//        setState(State::ReadingConfigDownloading);
-//        break;
-//    }
-//    case State::ReadingConfigDownloading: {
-//        if (!ftpModel()->isDone()) {
-//            break;
-//        }
-//        ftpModel()->close();
-//        _settingsFile->seek(0);
-//        auto settIni = _settingsFile->readAll();
-//        qDebug() << __FILE__ << ":" << __LINE__ << " settIni = " << settIni;
-//        devModel()->parseSettingsIni(settIni, devModelCurrentIndex());
-//        emit showMessage("Прочитал настройки", 5000);
-//        setState(State::None);
-//        break;
-//    }
-//    case State::WriteingConfigWaitTcp: {
-//        if (_devCommander.waitForAnswer()) {
-//            break;
-//        }
-//        emit showMessage("Записал настройки", 5000);
-//        setState(State::None);
-//        break;
-//    }
     case State::CountState: {
         Q_ASSERT(false);
         break;

@@ -165,7 +165,7 @@ void DeviceController::workerStarting() {
         auto *devWorker = new DevWorker(dStruct, _downloadFolder
                                         , {deviceName, timeDir});
         /// \todo delete me! Для отладки отключаю удаление после скачивания!
-        devWorker->setRemoveAfterDownload(false);
+//        devWorker->setRemoveAfterDownload(false);
 
         connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
         connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
@@ -248,11 +248,6 @@ DevWorker::DevWorker(QString ipStr, QString ftpLog, QString ftpPass
 
     connect(this, &DevWorker::stateChanged, &DevWorker::stateMachine);
 
-    connect(&_commander, &DeviceCommander::waitForAnswerChanged, this, &DevWorker::stateMachine);
-    _commander.setIp(ip);
-    _commander.setFtpUsername(ftpUsername);
-    _commander.setFtpPassword(ftpPassword);
-
     connect(&_ftpModel, &FtpModel::done, this, &DevWorker::stateMachine);
     connect(&_ftpModel, &FtpModel::freezeChanged, this, &DevWorker::stateMachine);
     connect(&_ftpModel, &FtpModel::dataTransferProgress, this, [this] (qint64 done, qint64 total) {
@@ -274,10 +269,6 @@ DevWorker::State DevWorker::state() const {
 void DevWorker::startDownloading() {
     emit started();
     _stoped = false;
-    auto error = _commander.sendCommands({ DeviceCommander::Command::SetParameter
-                                            , DeviceCommander::Command::FtpUsername
-                                            , DeviceCommander::Command::FtpPassword });
-    Q_ASSERT(error == DeviceCommander::Error::NoError);
     setState(State::InitFtp);
 }
 
@@ -294,37 +285,13 @@ void DevWorker::stopDownloading()
 }
 
 void DevWorker::stateMachine() {
-    qDebug() << __FILE__ << __LINE__ << error() << _commander.error()
-             << _ftpModel.error() << _ftpModel.isDone() << _ftpModel.freeze();
+    qDebug() << __FILE__ << __LINE__ << error() << _ftpModel.error() << _ftpModel.isDone() << _ftpModel.freeze();
     if (_stoped) {
         emit finished();
         return;
     }
 
     if (error() != Error::None) {
-        emit finished();
-        return;
-    }
-
-    if (_commander.error() != DeviceCommander::Error::NoError) {
-        qDebug() << __FILE__ << __LINE__ << _commander.error();
-        switch(_commander.error()) {
-        case DeviceCommander::Error::CantConnecting:
-            _commander.setError(DeviceCommander::Error::NoError);
-            break;
-        case DeviceCommander::Error::NoError:
-        case DeviceCommander::Error::MissArgument:
-        case DeviceCommander::Error::BadArgument:
-        case DeviceCommander::Error::WaitForAnswer: {
-            qDebug() << _commander.error();
-            Q_ASSERT(false);
-            // это не сохраняем в поле ошибки а возвращаем через sendCommands().
-            break;
-        }
-        case DeviceCommander::Error::Count:
-            Q_ASSERT(false);
-            break;
-        }
         emit finished();
         return;
     }
@@ -340,9 +307,6 @@ void DevWorker::stateMachine() {
         break;
     }
     case State::InitFtp: {
-        if (_commander.waitForAnswer()) {
-            break;
-        }
         QThread::msleep(500);
         Q_ASSERT(_ftpModel.state() == QFtp::Unconnected);
         _ftpModel.connectToHost(ip);
