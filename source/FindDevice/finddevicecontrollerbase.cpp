@@ -7,10 +7,10 @@ FindDeviceControllerBase *FindDeviceControllerBase::createController(QObject *pa
 
 //    /// Полная симуляция поиска девайсов
 //    return new FindDeviceSimulation(parent);
-    /// Поиск девайса с дебажными FTP серверами
-    return new FindDeviceExternalApp(true, parent);
-//    /// Релизный поиск девайса. В бою расскоментить эту строку!
-//    return new FindDeviceExternalApp(false, parent);
+//    /// Поиск девайса с дебажными FTP серверами
+//    return new FindDeviceExternalApp(true, parent);
+    /// Релизный поиск девайса. В бою расскоментить эту строку!
+    return new FindDeviceExternalApp(false, parent);
 }
 
 FindDeviceControllerBase::FindDeviceControllerBase(QObject *parent)

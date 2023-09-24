@@ -10,7 +10,10 @@ QString My::genRandom(const int len) {
 #ifdef SIMPLE_PASS
     static bool log = false;
     log = !log;
-    return log ? "logQwerty" : "passQwerty";
+    // FTP login "Atest"
+    // FTP pass "AtestFTPPass"
+    return log ? "Atest" : "AtestFTPPass";
+
 #else
     static const QString alphanum =
             "0123456789"

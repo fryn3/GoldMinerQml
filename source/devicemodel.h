@@ -57,6 +57,7 @@ public:
     const QHash<QString, QString> &macAndName() const;
     void setMacAndName(const QHash<QString, QString> &newMacAndName);
     void clear();
+    int findRow(QString ip) const;
     void clearExceptFor(QList<QString> ips);
     void removeRow(QString ip);
     void setProgressBarZero();

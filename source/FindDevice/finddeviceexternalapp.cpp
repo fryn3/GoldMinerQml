@@ -16,6 +16,7 @@ void FindDeviceExternalApp::start() {
     QFile findIpExe(":/resources/soft/FindIP.exe");
     QTemporaryFile *newTempFile = QTemporaryFile::createNativeFile(findIpExe);
     newTempFile->rename(newTempFile->fileName() + ".exe");
+    qDebug() << "File name is" << newTempFile->fileName();
     QProcess *p = new QProcess(this);
     connect(p, &QProcess::errorOccurred, this, [this, newTempFile] {
         setError(QString("Ошибка запуска %1").arg(newTempFile->fileName()));

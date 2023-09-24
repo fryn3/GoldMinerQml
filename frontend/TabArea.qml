@@ -8,6 +8,7 @@ Item {
     id: root
 
     readonly property bool hideRtsp: true
+    readonly property bool hideSettings: true
 
     enum TabIndex {
         TabFiles,
@@ -83,7 +84,7 @@ Item {
                     right: parent.right
                     verticalCenter: parent.verticalCenter
                 }
-                visible: !hideRtsp && enabled && root.currentIndex === TabArea.TabIndex.TabSettings
+                visible: !hideSettings && !hideRtsp && enabled && root.currentIndex === TabArea.TabIndex.TabSettings
                 color: Common.Theme.borderNormal
                 width: 1
                 height: parent.height - 16
@@ -105,6 +106,7 @@ Item {
             }
         }
         GreenTabButton {
+            visible: !hideSettings
             index: 2
             text: "Настройки"
         }
@@ -146,7 +148,7 @@ Item {
             }
             TabSettings {
                 id: tabSettings
-                visible: root.currentTabItem == tabSettings
+                visible: !hideSettings && root.currentTabItem == tabSettings
                 anchors.fill: parent
                 enabled: core.state === Core.State.None && core.devicesFound > 0
             }

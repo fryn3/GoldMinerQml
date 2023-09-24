@@ -118,13 +118,12 @@ public:
     };
     Q_ENUM(Error)
 
-    DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent = nullptr);
-    DevWorker(int index, const DeviceCam& dev, QString folderPath, QStringList subDirs, QObject *parent = nullptr);
+    DevWorker(QString ipStr, QString ftpLog, QString ftpPass, QString folderPath, QStringList subDirsList, QObject *parent = nullptr);
+    DevWorker(const DeviceCam& dev, QString folderPath, QStringList subDirs, QObject *parent = nullptr);
     virtual ~DevWorker() noexcept;
     DevWorker(const DevWorker&) = delete;
     DevWorker& operator=(const DevWorker&) = delete;
 
-    const int indexRow;
     const QString ip;
     const QString ftpUsername;
     const QString ftpPassword;

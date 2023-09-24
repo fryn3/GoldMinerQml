@@ -92,8 +92,10 @@ void DeviceController::findDev() {
             workerStarting();
         } else {
             // Если устройств нет, опять 10 секунд ждем!
-            setState(State::Wait);
-            __timerIdWait = startTimer(_waitTimeMs);
+            if (state() != State::Wait) {
+                setState(State::Wait);
+                __timerIdWait = startTimer(_waitTimeMs);
+            }
         }
     });
     connect(f, &FindDeviceControllerBase::finished, f, &QObject::deleteLater);
@@ -105,7 +107,7 @@ void DeviceController::workerStarting() {
     DevWorker *s = nullptr;
     if (sender()) {
         s = qobject_cast<DevWorker*>(sender());
-        qDebug() << __FILE__ << __LINE__ << s << s->indexRow << s->error();
+        qDebug() << __FILE__ << __LINE__ << s << s->ip << s->error();
         switch (s->error()) {
         case DevWorker::Error::None: {
             break;
@@ -160,17 +162,21 @@ void DeviceController::workerStarting() {
                                          Qt::DisplayRole).toString();
         QString timeDir = QDateTime::currentDateTime().toString("yy_MM_dd");
 
-        auto *devWorker = new DevWorker(_currentDev, dStruct, _downloadFolder
+        auto *devWorker = new DevWorker(dStruct, _downloadFolder
                                         , {deviceName, timeDir});
         /// \todo delete me! Для отладки отключаю удаление после скачивания!
         devWorker->setRemoveAfterDownload(false);
 
         connect(devWorker, &DevWorker::finished, this, &DeviceController::workerStarting);
         connect(devWorker, &DevWorker::progressTotalChanged, this, [this, devWorker] {
-            _devModel->set(devWorker->indexRow, devWorker->progressTotal(), DeviceModel::DmTotalSizeRole);
+            auto indexRow = _devModel->findRow(devWorker->ip);
+            Q_ASSERT(indexRow != -1);
+            _devModel->set(indexRow, devWorker->progressTotal(), DeviceModel::DmTotalSizeRole);
         });
         connect(devWorker, &DevWorker::progressDoneChanged, this, [this, devWorker] {
-            _devModel->set(devWorker->indexRow, devWorker->progressDone(), DeviceModel::DmDoneSizeRole);
+            auto indexRow = _devModel->findRow(devWorker->ip);
+            Q_ASSERT(indexRow != -1);
+            _devModel->set(indexRow, devWorker->progressDone(), DeviceModel::DmDoneSizeRole);
         });
         devWorker->startDownloading();
         _devWorkers.insert(dStruct.ip, devWorker);
@@ -235,9 +241,9 @@ void DeviceController::setDownloadFolder(const QString &newDownloadFolder) {
     emit downloadFolderChanged();
 }
 
-DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass
+DevWorker::DevWorker(QString ipStr, QString ftpLog, QString ftpPass
                      , QString folderPath, QStringList subDirsList, QObject *parent)
-    : QObject(parent), indexRow(index), ip(ipStr), ftpUsername(ftpLog), ftpPassword(ftpPass),
+    : QObject(parent), ip(ipStr), ftpUsername(ftpLog), ftpPassword(ftpPass),
       downloadFolder(folderPath), subDirs(subDirsList) {
 
     connect(this, &DevWorker::stateChanged, &DevWorker::stateMachine);
@@ -256,8 +262,8 @@ DevWorker::DevWorker(int index, QString ipStr, QString ftpLog, QString ftpPass
     });
 }
 
-DevWorker::DevWorker(int index, const DeviceCam &dev, QString folderPath, QStringList subDirs, QObject *parent)
-    : DevWorker(index, dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, subDirs, parent) { }
+DevWorker::DevWorker(const DeviceCam &dev, QString folderPath, QStringList subDirs, QObject *parent)
+    : DevWorker(dev.ip, dev.ftpUsername, dev.ftpPassword, folderPath, subDirs, parent) { }
 
 DevWorker::~DevWorker() noexcept { _ftpModel.abort(); }
 

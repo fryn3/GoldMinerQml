@@ -34,12 +34,14 @@ Window {
 
         text: core.state
     }
+    // for debug
     Rectangle {
         anchors {
             top: parent.top
             right: stateBar.left
             margins: 8
         }
+        visible: false
         color: core.someDebugFlag ? "red" : "green"
         width: 20
         height: 20

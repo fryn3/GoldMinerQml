@@ -371,6 +371,16 @@ void DeviceModel::clear() {
     endResetModel();
 }
 
+int DeviceModel::findRow(QString ip) const {
+    auto fIt = std::find_if(_devices.cbegin(), _devices.cend(), [&ip] (DeviceCam d) {
+                                return d.ip == ip;
+                            });
+    if (fIt == _devices.cend()) {
+        return -1;
+    }
+    return std::distance(_devices.cbegin(), fIt);
+}
+
 void DeviceModel::clearExceptFor(QList<QString> ips) {
     if (ips.isEmpty()) {
         clear();
